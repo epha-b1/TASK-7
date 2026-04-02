@@ -108,6 +108,6 @@ Observability:
 
 ## Deployment Notes
 
-- Local development can run without Docker using workspace scripts.
-- Docker Compose remains available for integrated local environments.
+- Local development and test execution are standardized on Docker Compose.
+- Avoid host-level runtime dependencies; use the provided Docker scripts.
 - Production deployment should terminate TLS before the backend and set `NODE_ENV=production`.

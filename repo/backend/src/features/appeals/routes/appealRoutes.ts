@@ -44,7 +44,7 @@ const transitionSchema = z.object({
 const listAppealsQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(50).default(20),
-  status: z.enum(['INTAKE', 'INVESTIGATION', 'RULING']).optional()
+  status: z.enum(["INTAKE", "INVESTIGATION", "RULING"]).optional(),
 });
 
 const handleAppealError = (error: unknown, response: Response): boolean => {
@@ -98,6 +98,7 @@ const handleAppealError = (error: unknown, response: Response): boolean => {
     "MISSING_SOURCE_COMMENT",
     "MISSING_SOURCE_ORDER",
     "SOURCE_COMMENT_NOT_FOUND",
+    "SOURCE_COMMENT_NOT_HIDDEN",
     "SOURCE_ORDER_NOT_FOUND",
     "NO_FILES_PROVIDED",
     "TOO_MANY_FILES",
@@ -116,7 +117,7 @@ const handleAppealError = (error: unknown, response: Response): boolean => {
 
 export const appealRouter = Router();
 
-appealRouter.get('/appeals', requireAuth, async (request, response, next) => {
+appealRouter.get("/appeals", requireAuth, async (request, response, next) => {
   try {
     const query = listAppealsQuerySchema.parse(request.query);
     const result = await listAppealQueue({
@@ -124,14 +125,14 @@ appealRouter.get('/appeals', requireAuth, async (request, response, next) => {
       requesterRoles: request.auth!.roles,
       page: query.page,
       pageSize: query.pageSize,
-      status: query.status
+      status: query.status,
     });
 
     response.json({
       page: query.page,
       pageSize: query.pageSize,
       total: result.total,
-      data: result.rows
+      data: result.rows,
     });
   } catch (error) {
     if (handleAppealError(error, response)) {

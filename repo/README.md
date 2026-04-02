@@ -4,10 +4,12 @@
 
 Run all commands from the repository root.
 
-## Start the App
+## Start the App (detached)
+
+Start the application services in detached mode (the script will exit, leaving containers running):
 
 ```bash
-docker compose --build -d
+./start_app.sh
 ```
 
 This starts:
@@ -16,12 +18,30 @@ This starts:
 - `backend` (Express API on `http://localhost:4000`)
 - `frontend` (Nginx on `http://localhost:8081`)
 
-## Run Tests (Docker Only)
-
-After the app is up:
+To view logs:
 
 ```bash
-docker compose run --rm tests
+docker compose -p neighborhoodpickup logs -f
+```
+
+To stop and remove the services and volumes:
+
+```bash
+docker compose -f docker-compose.yml -p neighborhoodpickup down --volumes --remove-orphans
+```
+
+## Run Tests (Docker-only, will stop services when done)
+
+Use the test script to run the test suite inside Docker. It will stop and clean up containers after the tests finish:
+
+```bash
+./run_tests.sh
+```
+
+If port `8081` is already in use on your machine, override it for the run:
+
+```bash
+FRONTEND_HOST_PORT=18081 ./run_tests.sh
 ```
 
 ## Default Login Credentials

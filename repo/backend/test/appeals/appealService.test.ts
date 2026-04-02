@@ -7,6 +7,21 @@ import {
 import * as repo from "../../src/features/appeals/repositories/appealRepository";
 import * as auditService from "../../src/features/audit/services/auditService";
 
+const mkdirMock = vi.hoisted(() => vi.fn().mockResolvedValue(undefined));
+const writeFileMock = vi.hoisted(() => vi.fn().mockResolvedValue(undefined));
+const readFileMock = vi.hoisted(() => vi.fn());
+
+vi.mock("fs/promises", () => ({
+  default: {
+    mkdir: mkdirMock,
+    writeFile: writeFileMock,
+    readFile: readFileMock,
+  },
+  mkdir: mkdirMock,
+  writeFile: writeFileMock,
+  readFile: readFileMock,
+}));
+
 vi.mock("../../src/features/appeals/repositories/appealRepository");
 vi.mock("../../src/features/audit/services/auditService", () => ({
   recordAuditLog: vi.fn().mockResolvedValue(undefined),
@@ -59,6 +74,86 @@ describe("appeal service", () => {
     ).rejects.toThrow("TOO_MANY_FILES");
   });
 
+  it("rejects malformed base64 payloads for appeal files", async () => {
+    mockedRepo.findAppealById.mockResolvedValue({
+      id: 10,
+      submittedByUserId: 1,
+      sourceType: "ORDER_DETAIL",
+      sourceCommentId: null,
+      sourceOrderId: 9,
+      reasonCategory: "ORDER_ISSUE",
+      narrative: "Need support",
+      referencesText: null,
+      status: "INTAKE",
+      currentEventAt: new Date().toISOString(),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
+    mockedRepo.countAppealFiles.mockResolvedValue(0);
+
+    await expect(
+      uploadAppealFiles({
+        appealId: 10,
+        userId: 1,
+        roles: ["MEMBER"],
+        files: [
+          {
+            fileName: "bad.pdf",
+            mimeType: "application/pdf",
+            base64Content: "@@definitely-not-base64@@",
+          },
+        ],
+      }),
+    ).rejects.toThrow("INVALID_BASE64_FILE");
+
+    expect(mockedRepo.insertAppealFile).not.toHaveBeenCalled();
+  });
+
+  it("does not transition intake status when submitter uploads evidence", async () => {
+    const now = new Date().toISOString();
+    mockedRepo.findAppealById.mockResolvedValue({
+      id: 10,
+      submittedByUserId: 1,
+      sourceType: "ORDER_DETAIL",
+      sourceCommentId: null,
+      sourceOrderId: 9,
+      reasonCategory: "ORDER_ISSUE",
+      narrative: "Need support",
+      referencesText: null,
+      status: "INTAKE",
+      currentEventAt: now,
+      createdAt: now,
+      updatedAt: now,
+    });
+    mockedRepo.countAppealFiles.mockResolvedValue(0);
+    mockedRepo.insertAppealFile.mockResolvedValue({
+      id: 100,
+      appealId: 10,
+      originalFileName: "evidence.pdf",
+      mimeType: "application/pdf",
+      fileSizeBytes: 4,
+      storageRelativePath: "storage/appeals/10/evidence.pdf",
+      checksumSha256: "abcd",
+      uploadedByUserId: 1,
+      createdAt: now,
+    });
+
+    await uploadAppealFiles({
+      appealId: 10,
+      userId: 1,
+      roles: ["MEMBER"],
+      files: [
+        {
+          fileName: "evidence.pdf",
+          mimeType: "application/pdf",
+          base64Content: Buffer.from("data").toString("base64"),
+        },
+      ],
+    });
+
+    expect(mockedRepo.appendAppealStatusEvent).not.toHaveBeenCalled();
+  });
+
   it("enforces source validation for hidden content appeal", async () => {
     await expect(
       createAppealRecord({
@@ -71,6 +166,33 @@ describe("appeal service", () => {
         },
       }),
     ).rejects.toThrow("MISSING_SOURCE_COMMENT");
+  });
+
+  it("requires hidden or flagged comment source for hidden-content appeals", async () => {
+    mockedRepo.getCommentAppealContext.mockResolvedValue({
+      commentId: 77,
+      discussionId: 900,
+      contextType: "LISTING",
+      contextId: 32,
+      isHidden: false,
+      flagCount: 0,
+    });
+
+    await expect(
+      createAppealRecord({
+        userId: 4,
+        roles: ["MEMBER"],
+        input: {
+          sourceType: "HIDDEN_CONTENT_BANNER",
+          sourceCommentId: 77,
+          reasonCategory: "MODERATION",
+          narrative:
+            "The moderation action appears incorrect and should be reviewed.",
+        },
+      }),
+    ).rejects.toThrow("SOURCE_COMMENT_NOT_HIDDEN");
+
+    expect(mockedRepo.createAppeal).not.toHaveBeenCalled();
   });
 
   it("rejects order appeal creation for a member who does not own the order", async () => {

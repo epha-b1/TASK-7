@@ -73,6 +73,9 @@
           <button @click="goToPickupPoint(listing.pickupPointId)">
             Pickup Point Detail
           </button>
+          <button @click="openListingDiscussion(listing.id)">
+            Open Discussion
+          </button>
           <button @click="goToCheckout(listing)">Checkout</button>
         </div>
       </article>
@@ -94,6 +97,7 @@
 import { computed, onMounted, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { commerceApi } from "../api/commerceApi";
+import { discussionApi } from "../api/discussionApi";
 import type { ListingItem } from "../types/commerce";
 import { useCheckoutStore } from "../stores/checkoutStore";
 import { trackEvent } from "../telemetry/trackEvent";
@@ -203,6 +207,33 @@ const goToCheckout = async (listing: ListingItem) => {
       pickupPointId: String(listing.pickupPointId),
     },
   });
+};
+
+const openListingDiscussion = async (listingId: number) => {
+  try {
+    const thread = await discussionApi.resolveThread({
+      contextType: "LISTING",
+      contextId: listingId,
+    });
+
+    await trackEvent({
+      eventType: "CLICK",
+      resourceType: "DISCUSSION_THREAD",
+      resourceId: String(thread.discussionId),
+      payload: {
+        source: "listings",
+        listingId,
+      },
+    });
+
+    await router.push({
+      name: "discussion-thread",
+      params: { id: String(thread.discussionId) },
+    });
+  } catch (err) {
+    error.value =
+      err instanceof Error ? err.message : "Failed to open listing discussion.";
+  }
 };
 
 const prevPage = async () => {

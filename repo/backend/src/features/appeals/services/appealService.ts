@@ -15,6 +15,7 @@ import {
   listAppealTimeline,
 } from "../repositories/appealRepository";
 import { recordAuditLog } from "../../audit/services/auditService";
+import { logger } from "../../../utils/logger";
 import type {
   AppealRecord,
   AppealStatus,
@@ -29,6 +30,9 @@ const allowedMimeTypes = new Set([
   "image/jpeg",
   "image/png",
 ]);
+
+const base64PayloadPattern =
+  /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/;
 
 const statusTransitionMap: Record<AppealStatus, AppealStatus[]> = {
   INTAKE: ["INVESTIGATION"],
@@ -54,11 +58,24 @@ const ensureAppealUploadDir = async (appealId: number): Promise<string> => {
 };
 
 const decodeBase64File = (file: AppealUploadInputFile): Buffer => {
-  try {
-    return Buffer.from(file.base64Content, "base64");
-  } catch {
+  const normalized = file.base64Content.replace(/\s+/g, "");
+
+  if (
+    normalized.length === 0 ||
+    normalized.length % 4 !== 0 ||
+    !base64PayloadPattern.test(normalized)
+  ) {
     throw new Error("INVALID_BASE64_FILE");
   }
+
+  const binary = Buffer.from(normalized, "base64");
+  const encoded = binary.toString("base64");
+
+  if (encoded !== normalized) {
+    throw new Error("INVALID_BASE64_FILE");
+  }
+
+  return binary;
 };
 
 const hasElevatedAppealAccess = (roles: string[]): boolean =>
@@ -158,9 +175,19 @@ export const createAppealRecord = async (params: {
   }
 
   if (params.input.sourceCommentId) {
-    const found = await getCommentAppealContext(params.input.sourceCommentId);
-    if (!found) {
+    const commentContext = await getCommentAppealContext(
+      params.input.sourceCommentId,
+    );
+    if (!commentContext) {
       throw new Error("SOURCE_COMMENT_NOT_FOUND");
+    }
+
+    if (
+      params.input.sourceType === "HIDDEN_CONTENT_BANNER" &&
+      !commentContext.isHidden &&
+      commentContext.flagCount < 1
+    ) {
+      throw new Error("SOURCE_COMMENT_NOT_HIDDEN");
     }
   }
 
@@ -262,22 +289,19 @@ export const uploadAppealFiles = async (params: {
     inserted.push(record);
   }
 
-  if (appeal.status === "INTAKE") {
-    await appendAppealStatusEvent({
-      appealId: appeal.id,
-      fromStatus: "INTAKE",
-      toStatus: "INVESTIGATION",
-      note: "Evidence uploaded and moved to investigation.",
-      changedByUserId: params.userId,
-    });
-  }
-
   await recordAuditLog({
     actorUserId: params.userId,
     action: "UPLOAD",
     resourceType: "APPEAL_FILE",
     resourceId: appeal.id,
     metadata: { fileCount: inserted.length },
+  });
+
+  logger.info("appeals.files.uploaded", "Appeal evidence uploaded", {
+    appealId: appeal.id,
+    uploadedByUserId: params.userId,
+    fileCount: inserted.length,
+    status: appeal.status,
   });
 
   return {
@@ -354,6 +378,14 @@ export const transitionAppealStatus = async (params: {
   );
 
   if (!canModerate) {
+    logger.warn(
+      "appeals.status.transition_forbidden",
+      "Rejected appeal status transition attempt",
+      {
+        appealId: params.appealId,
+        actorUserId: params.fromUserId,
+      },
+    );
     throw new Error("APPEAL_STATUS_FORBIDDEN");
   }
 
@@ -364,6 +396,16 @@ export const transitionAppealStatus = async (params: {
 
   const allowedNext = statusTransitionMap[appeal.status];
   if (!allowedNext.includes(params.toStatus)) {
+    logger.warn(
+      "appeals.status.transition_invalid",
+      "Invalid appeal status transition requested",
+      {
+        appealId: params.appealId,
+        fromStatus: appeal.status,
+        toStatus: params.toStatus,
+        actorUserId: params.fromUserId,
+      },
+    );
     throw new Error("INVALID_STATUS_TRANSITION");
   }
 
@@ -385,6 +427,13 @@ export const transitionAppealStatus = async (params: {
       toStatus: params.toStatus,
       note: params.note,
     },
+  });
+
+  logger.info("appeals.status.transitioned", "Appeal status transitioned", {
+    appealId: appeal.id,
+    fromStatus: appeal.status,
+    toStatus: params.toStatus,
+    actorUserId: params.fromUserId,
   });
 
   return {

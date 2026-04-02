@@ -1,17 +1,28 @@
-import { dbPool } from '../../../db/pool';
-import type { DiscussionContextType, NotificationItem, SortMode, ThreadComment } from '../types';
+import { dbPool } from "../../../db/pool";
+import type {
+  DiscussionContextType,
+  NotificationItem,
+  SortMode,
+  ThreadComment,
+} from "../types";
 
 const discussionSortSql: Record<SortMode, string> = {
-  newest: 'c.created_at DESC',
-  oldest: 'c.created_at ASC',
-  most_replies: 'c.reply_count DESC, c.created_at DESC'
+  newest: "c.created_at DESC",
+  oldest: "c.created_at ASC",
+  most_replies: "c.reply_count DESC, c.created_at DESC",
 };
+
+const COMMENT_HIDE_FLAG_THRESHOLD = 3;
 
 export const getOrCreateDiscussion = async (params: {
   contextType: DiscussionContextType;
   contextId: number;
   createdByUserId: number;
-}): Promise<{ id: number; contextType: DiscussionContextType; contextId: number }> => {
+}): Promise<{
+  id: number;
+  contextType: DiscussionContextType;
+  contextId: number;
+}> => {
   const [rows] = await dbPool.query<
     { id: number; context_type: DiscussionContextType; context_id: number }[]
   >(
@@ -19,27 +30,27 @@ export const getOrCreateDiscussion = async (params: {
      FROM discussions
      WHERE context_type = ? AND context_id = ?
      LIMIT 1`,
-    [params.contextType, params.contextId]
+    [params.contextType, params.contextId],
   );
 
   if (rows.length > 0) {
     return {
       id: rows[0].id,
       contextType: rows[0].context_type,
-      contextId: rows[0].context_id
+      contextId: rows[0].context_id,
     };
   }
 
   const [insertResult] = await dbPool.query<any>(
     `INSERT INTO discussions (context_type, context_id, created_by_user_id)
      VALUES (?, ?, ?)`,
-    [params.contextType, params.contextId, params.createdByUserId]
+    [params.contextType, params.contextId, params.createdByUserId],
   );
 
   return {
     id: Number(insertResult.insertId),
     contextType: params.contextType,
-    contextId: params.contextId
+    contextId: params.contextId,
   };
 };
 
@@ -59,8 +70,8 @@ export const createComment = async (params: {
       params.parentCommentId ?? null,
       params.userId,
       params.body,
-      params.quotedCommentId ?? null
-    ]
+      params.quotedCommentId ?? null,
+    ],
   );
 
   const commentId = Number(result.insertId);
@@ -70,14 +81,16 @@ export const createComment = async (params: {
       `UPDATE comments
        SET reply_count = reply_count + 1
        WHERE id = ?`,
-      [params.parentCommentId]
+      [params.parentCommentId],
     );
   }
 
   return { commentId };
 };
 
-export const findCommentById = async (commentId: number): Promise<{
+export const findCommentById = async (
+  commentId: number,
+): Promise<{
   id: number;
   discussionId: number;
   parentCommentId: number | null;
@@ -101,7 +114,7 @@ export const findCommentById = async (commentId: number): Promise<{
      FROM comments
      WHERE id = ?
      LIMIT 1`,
-    [commentId]
+    [commentId],
   );
 
   if (rows.length === 0) {
@@ -116,19 +129,21 @@ export const findCommentById = async (commentId: number): Promise<{
     userId: row.user_id,
     body: row.body,
     isHidden: row.is_hidden === 1,
-    hiddenReason: row.hidden_reason
+    hiddenReason: row.hidden_reason,
   };
 };
 
-export const findUsersByUsernames = async (usernames: string[]): Promise<Array<{ id: number; username: string }>> => {
+export const findUsersByUsernames = async (
+  usernames: string[],
+): Promise<Array<{ id: number; username: string }>> => {
   if (usernames.length === 0) {
     return [];
   }
 
-  const placeholders = usernames.map(() => '?').join(',');
+  const placeholders = usernames.map(() => "?").join(",");
   const [rows] = await dbPool.query<{ id: number; username: string }[]>(
     `SELECT id, username FROM users WHERE username IN (${placeholders})`,
-    usernames
+    usernames,
   );
   return rows;
 };
@@ -141,14 +156,14 @@ export const createCommentMentions = async (params: {
     await dbPool.query(
       `INSERT IGNORE INTO comment_mentions (comment_id, mentioned_user_id, mention_text)
        VALUES (?, ?, ?)`,
-      [params.commentId, mention.userId, `@${mention.username}`]
+      [params.commentId, mention.userId, `@${mention.username}`],
     );
   }
 };
 
 export const createNotification = async (params: {
   userId: number;
-  notificationType: 'MENTION' | 'REPLY';
+  notificationType: "MENTION" | "REPLY";
   sourceCommentId: number;
   discussionId: number;
   message: string;
@@ -162,8 +177,8 @@ export const createNotification = async (params: {
       params.notificationType,
       params.sourceCommentId,
       params.discussionId,
-      params.message
-    ]
+      params.message,
+    ],
   );
 };
 
@@ -179,7 +194,7 @@ export const getThreadCommentsPage = async (params: {
     `SELECT COUNT(*) AS total
      FROM comments
      WHERE discussion_id = ?`,
-    [params.discussionId]
+    [params.discussionId],
   );
 
   const [rows] = await dbPool.query<
@@ -218,14 +233,17 @@ export const getThreadCommentsPage = async (params: {
      WHERE c.discussion_id = ?
      ORDER BY ${discussionSortSql[params.sort]}
      LIMIT ? OFFSET ?`,
-    [params.discussionId, pageSize, offset]
+    [params.discussionId, pageSize, offset],
   );
 
   const commentIds = rows.map((row) => row.id);
-  const mentionsByComment = new Map<number, Array<{ userId: number; username: string }>>();
+  const mentionsByComment = new Map<
+    number,
+    Array<{ userId: number; username: string }>
+  >();
 
   if (commentIds.length > 0) {
-    const placeholders = commentIds.map(() => '?').join(',');
+    const placeholders = commentIds.map(() => "?").join(",");
     const [mentionRows] = await dbPool.query<
       { comment_id: number; mentioned_user_id: number; username: string }[]
     >(
@@ -233,12 +251,15 @@ export const getThreadCommentsPage = async (params: {
        FROM comment_mentions cm
        JOIN users u ON u.id = cm.mentioned_user_id
        WHERE cm.comment_id IN (${placeholders})`,
-      commentIds
+      commentIds,
     );
 
     for (const mention of mentionRows) {
       const list = mentionsByComment.get(mention.comment_id) ?? [];
-      list.push({ userId: mention.mentioned_user_id, username: mention.username });
+      list.push({
+        userId: mention.mentioned_user_id,
+        username: mention.username,
+      });
       mentionsByComment.set(mention.comment_id, list);
     }
   }
@@ -259,12 +280,14 @@ export const getThreadCommentsPage = async (params: {
       replyCount: Number(row.reply_count),
       flagCount: Number(row.flag_count),
       createdAt: new Date(row.created_at).toISOString(),
-      mentions: mentionsByComment.get(row.id) ?? []
-    }))
+      mentions: mentionsByComment.get(row.id) ?? [],
+    })),
   };
 };
 
-export const getDiscussionById = async (discussionId: number): Promise<{
+export const getDiscussionById = async (
+  discussionId: number,
+): Promise<{
   id: number;
   contextType: DiscussionContextType;
   contextId: number;
@@ -276,7 +299,7 @@ export const getDiscussionById = async (discussionId: number): Promise<{
      FROM discussions
      WHERE id = ?
      LIMIT 1`,
-    [discussionId]
+    [discussionId],
   );
 
   if (rows.length === 0) {
@@ -286,7 +309,7 @@ export const getDiscussionById = async (discussionId: number): Promise<{
   return {
     id: rows[0].id,
     contextType: rows[0].context_type,
-    contextId: rows[0].context_id
+    contextId: rows[0].context_id,
   };
 };
 
@@ -300,7 +323,7 @@ export const isOrderOwnedByUser = async (params: {
      WHERE id = ?
        AND user_id = ?
      LIMIT 1`,
-    [params.orderId, params.userId]
+    [params.orderId, params.userId],
   );
 
   return rows.length > 0;
@@ -310,29 +333,34 @@ export const addCommentFlag = async (params: {
   commentId: number;
   flaggedByUserId: number;
   reason: string;
-}): Promise<void> => {
+}): Promise<boolean> => {
   await dbPool.query(
     `INSERT IGNORE INTO comment_flags (comment_id, flagged_by_user_id, reason)
      VALUES (?, ?, ?)`,
-    [params.commentId, params.flaggedByUserId, params.reason]
+    [params.commentId, params.flaggedByUserId, params.reason],
   );
 
   const [countRows] = await dbPool.query<{ total: number }[]>(
     `SELECT COUNT(*) AS total
      FROM comment_flags
      WHERE comment_id = ?`,
-    [params.commentId]
+    [params.commentId],
   );
 
-  if (Number(countRows[0]?.total ?? 0) >= 1) {
+  const flagCount = Number(countRows[0]?.total ?? 0);
+  const shouldHide = flagCount >= COMMENT_HIDE_FLAG_THRESHOLD;
+
+  if (shouldHide) {
     await dbPool.query(
       `UPDATE comments
        SET is_hidden = 1,
            hidden_reason = 'Flagged by community moderation'
        WHERE id = ?`,
-      [params.commentId]
+      [params.commentId],
     );
   }
+
+  return shouldHide;
 };
 
 export const getNotifications = async (params: {
@@ -343,18 +371,18 @@ export const getNotifications = async (params: {
   const offset = (params.page - 1) * pageSize;
 
   const [countRows] = await dbPool.query<{ total: number }[]>(
-    'SELECT COUNT(*) AS total FROM notifications WHERE user_id = ?',
-    [params.userId]
+    "SELECT COUNT(*) AS total FROM notifications WHERE user_id = ?",
+    [params.userId],
   );
 
   const [rows] = await dbPool.query<
     {
       id: number;
-      notification_type: 'MENTION' | 'REPLY';
+      notification_type: "MENTION" | "REPLY";
       source_comment_id: number;
       discussion_id: number;
       message: string;
-      read_state: 'UNREAD' | 'READ';
+      read_state: "UNREAD" | "READ";
       created_at: Date | string;
       read_at: Date | string | null;
     }[]
@@ -371,7 +399,7 @@ export const getNotifications = async (params: {
      WHERE user_id = ?
      ORDER BY created_at DESC
      LIMIT ? OFFSET ?`,
-    [params.userId, pageSize, offset]
+    [params.userId, pageSize, offset],
   );
 
   return {
@@ -384,15 +412,15 @@ export const getNotifications = async (params: {
       message: row.message,
       readState: row.read_state,
       createdAt: new Date(row.created_at).toISOString(),
-      readAt: row.read_at ? new Date(row.read_at).toISOString() : null
-    }))
+      readAt: row.read_at ? new Date(row.read_at).toISOString() : null,
+    })),
   };
 };
 
 export const updateNotificationReadState = async (params: {
   userId: number;
   notificationId: number;
-  readState: 'READ' | 'UNREAD';
+  readState: "READ" | "UNREAD";
 }): Promise<boolean> => {
   const [result] = await dbPool.query<any>(
     `UPDATE notifications
@@ -400,7 +428,7 @@ export const updateNotificationReadState = async (params: {
          read_at = CASE WHEN ? = 'READ' THEN CURRENT_TIMESTAMP ELSE NULL END
      WHERE id = ?
        AND user_id = ?`,
-    [params.readState, params.readState, params.notificationId, params.userId]
+    [params.readState, params.readState, params.notificationId, params.userId],
   );
 
   return Number(result.affectedRows ?? 0) > 0;

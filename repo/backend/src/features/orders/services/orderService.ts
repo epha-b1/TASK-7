@@ -6,14 +6,20 @@ import {
   listAlternativePickupWindows,
   createOrderTransaction,
   getOrderDetailById,
-  getLedgerRows
-} from '../data/orderRepository';
-import { buildPricingQuote } from './pricingEngine';
-import type { CheckoutResult, OrderDetail, OrderQuoteInput, PricingQuote } from '../types';
+  getLedgerRows,
+} from "../data/orderRepository";
+import { buildPricingQuote } from "./pricingEngine";
+import type {
+  CheckoutResult,
+  OrderDetail,
+  OrderQuoteInput,
+  PricingQuote,
+} from "../types";
 import { recordServerBehaviorEvent } from "../../behavior/services/behaviorService";
+import { logger } from "../../../utils/logger";
 
 const normalizeOrderItems = (
-  items: OrderQuoteInput['items']
+  items: OrderQuoteInput["items"],
 ): Array<{ listingId: number; quantity: number }> => {
   const map = new Map<number, number>();
 
@@ -22,27 +28,34 @@ const normalizeOrderItems = (
     map.set(item.listingId, existing + item.quantity);
   }
 
-  return Array.from(map.entries()).map(([listingId, quantity]) => ({ listingId, quantity }));
+  return Array.from(map.entries()).map(([listingId, quantity]) => ({
+    listingId,
+    quantity,
+  }));
 };
 
-const validateItems = (items: OrderQuoteInput['items']): void => {
+const validateItems = (items: OrderQuoteInput["items"]): void => {
   if (items.length === 0) {
-    throw new Error('INVALID_ORDER_ITEMS');
+    throw new Error("INVALID_ORDER_ITEMS");
   }
 
   for (const item of items) {
     if (!Number.isInteger(item.quantity) || item.quantity <= 0) {
-      throw new Error('INVALID_ORDER_ITEMS');
+      throw new Error("INVALID_ORDER_ITEMS");
     }
   }
 };
 
-export const quoteOrder = async (input: OrderQuoteInput): Promise<PricingQuote> => {
+export const quoteOrder = async (
+  input: OrderQuoteInput,
+): Promise<PricingQuote> => {
   validateItems(input.items);
 
-  const taxJurisdiction = await getTaxJurisdictionByCode(input.taxJurisdictionCode);
+  const taxJurisdiction = await getTaxJurisdictionByCode(
+    input.taxJurisdictionCode,
+  );
   if (!taxJurisdiction) {
-    throw new Error('INVALID_TAX_JURISDICTION');
+    throw new Error("INVALID_TAX_JURISDICTION");
   }
 
   const normalizedItems = normalizeOrderItems(input.items);
@@ -50,14 +63,16 @@ export const quoteOrder = async (input: OrderQuoteInput): Promise<PricingQuote> 
   const listingRecords = await getListingPricingRecords({
     cycleId: input.cycleId,
     pickupPointId: input.pickupPointId,
-    items: normalizedItems
+    items: normalizedItems,
   });
 
   if (listingRecords.length !== normalizedItems.length) {
-    throw new Error('INVALID_ORDER_LISTING_SELECTION');
+    throw new Error("INVALID_ORDER_LISTING_SELECTION");
   }
 
-  const listingMap = new Map(listingRecords.map((record) => [record.listingId, record]));
+  const listingMap = new Map(
+    listingRecords.map((record) => [record.listingId, record]),
+  );
 
   for (const item of normalizedItems) {
     const listing = listingMap.get(item.listingId)!;
@@ -69,7 +84,7 @@ export const quoteOrder = async (input: OrderQuoteInput): Promise<PricingQuote> 
 
   const pickupWindow = await getPickupWindowCapacity(input.pickupWindowId);
   if (!pickupWindow || pickupWindow.pickupPointId !== input.pickupPointId) {
-    throw new Error('INVALID_PICKUP_WINDOW');
+    throw new Error("INVALID_PICKUP_WINDOW");
   }
 
   const ruleVersions = await getActivePricingRuleVersions();
@@ -80,7 +95,7 @@ export const quoteOrder = async (input: OrderQuoteInput): Promise<PricingQuote> 
     taxJurisdiction,
     listingRecords,
     items: normalizedItems,
-    ruleVersions
+    ruleVersions,
   });
 };
 
@@ -91,32 +106,59 @@ export const checkoutOrder = async (params: {
   try {
     const quote = await quoteOrder(params.input);
 
-    const pickupWindow = await getPickupWindowCapacity(params.input.pickupWindowId);
-    if (!pickupWindow || pickupWindow.pickupPointId !== params.input.pickupPointId) {
+    const pickupWindow = await getPickupWindowCapacity(
+      params.input.pickupWindowId,
+    );
+    if (
+      !pickupWindow ||
+      pickupWindow.pickupPointId !== params.input.pickupPointId
+    ) {
+      logger.warn(
+        "orders.checkout.invalid_window",
+        "Rejected checkout with invalid pickup window",
+        {
+          userId: params.userId,
+          pickupWindowId: params.input.pickupWindowId,
+          pickupPointId: params.input.pickupPointId,
+        },
+      );
       return {
         ok: false,
-        code: 'INVALID_ORDER',
-        message: 'Invalid pickup window selection.'
+        code: "INVALID_ORDER",
+        message: "Invalid pickup window selection.",
       };
     }
 
-    const remainingCapacity = pickupWindow.capacityTotal - pickupWindow.reservedSlots;
+    const remainingCapacity =
+      pickupWindow.capacityTotal - pickupWindow.reservedSlots;
     if (remainingCapacity < 1) {
       const alternatives = await listAlternativePickupWindows({
         pickupPointId: params.input.pickupPointId,
         minimumRemaining: 1,
         excludeWindowId: params.input.pickupWindowId,
-        limit: 5
+        limit: 5,
       });
+
+      logger.warn(
+        "orders.checkout.capacity_conflict",
+        "Checkout blocked due to full pickup window",
+        {
+          userId: params.userId,
+          pickupWindowId: params.input.pickupWindowId,
+          pickupPointId: params.input.pickupPointId,
+          alternatives: alternatives.length,
+        },
+      );
+
       return {
         ok: false,
-        code: 'CAPACITY_EXCEEDED',
-        message: 'Selected pickup window has reached full capacity.',
+        code: "CAPACITY_EXCEEDED",
+        message: "Selected pickup window has reached full capacity.",
         conflict: {
-          message: 'Selected pickup window is full. Choose another window.',
+          message: "Selected pickup window is full. Choose another window.",
           requestedWindowId: params.input.pickupWindowId,
-          alternatives
-        }
+          alternatives,
+        },
       };
     }
 
@@ -129,7 +171,7 @@ export const checkoutOrder = async (params: {
         id: pickupWindow.id,
         windowDate: pickupWindow.windowDate,
         startTime: pickupWindow.startTime,
-        endTime: pickupWindow.endTime
+        endTime: pickupWindow.endTime,
       },
       quote: {
         subtotal: quote.subtotal,
@@ -143,53 +185,93 @@ export const checkoutOrder = async (params: {
           quantity: line.quantity,
           unitPrice: line.unitPrice,
           subtotal: line.subtotal,
-          lineDiscount: line.memberPricingAdjustment + line.tieredDiscount + line.cappedDiscount,
+          lineDiscount:
+            line.memberPricingAdjustment +
+            line.tieredDiscount +
+            line.cappedDiscount,
           lineSubsidy: line.subsidy,
           lineTax: line.taxAmount,
           lineTotal: line.total,
-          pricingBreakdown: line
-        }))
-      }
+          pricingBreakdown: line,
+        })),
+      },
+    });
+
+    logger.info("orders.checkout.confirmed", "Checkout order confirmed", {
+      userId: params.userId,
+      orderId: persisted.orderId,
+      pickupWindowId: params.input.pickupWindowId,
+      itemCount: params.input.items.length,
     });
 
     return {
       ok: true,
       orderId: persisted.orderId,
-      status: 'CONFIRMED'
+      status: "CONFIRMED",
     };
   } catch (error) {
-    if (error instanceof Error && error.message.startsWith('INSUFFICIENT_INVENTORY:')) {
+    if (
+      error instanceof Error &&
+      error.message.startsWith("INSUFFICIENT_INVENTORY:")
+    ) {
+      logger.warn(
+        "orders.checkout.inventory_conflict",
+        "Checkout blocked due to inventory conflict",
+        {
+          userId: params.userId,
+          pickupWindowId: params.input.pickupWindowId,
+        },
+      );
+
       return {
         ok: false,
-        code: 'INSUFFICIENT_INVENTORY',
-        message: 'One or more items no longer have enough inventory.'
+        code: "INSUFFICIENT_INVENTORY",
+        message: "One or more items no longer have enough inventory.",
       };
     }
 
-    if (error instanceof Error && error.message === 'CAPACITY_EXCEEDED') {
+    if (error instanceof Error && error.message === "CAPACITY_EXCEEDED") {
       const alternatives = await listAlternativePickupWindows({
         pickupPointId: params.input.pickupPointId,
         minimumRemaining: 1,
         excludeWindowId: params.input.pickupWindowId,
-        limit: 5
+        limit: 5,
       });
+
+      logger.warn(
+        "orders.checkout.capacity_conflict",
+        "Checkout blocked due to transactional capacity conflict",
+        {
+          userId: params.userId,
+          pickupWindowId: params.input.pickupWindowId,
+          pickupPointId: params.input.pickupPointId,
+          alternatives: alternatives.length,
+        },
+      );
 
       return {
         ok: false,
-        code: 'CAPACITY_EXCEEDED',
-        message: 'Selected pickup window has reached full capacity.',
+        code: "CAPACITY_EXCEEDED",
+        message: "Selected pickup window has reached full capacity.",
         conflict: {
-          message: 'Selected pickup window is full. Choose another window.',
+          message: "Selected pickup window is full. Choose another window.",
           requestedWindowId: params.input.pickupWindowId,
-          alternatives
-        }
+          alternatives,
+        },
       };
     }
 
+    logger.warn("orders.checkout.invalid_order", "Checkout failed", {
+      userId: params.userId,
+      pickupWindowId: params.input.pickupWindowId,
+      reason: error instanceof Error ? error.message : "UNKNOWN",
+    });
+
     return {
       ok: false,
-      code: 'INVALID_ORDER',
-      message: error instanceof Error ? error.message : 'Failed to submit order.'
+      code: "INVALID_ORDER",
+      message:
+        error instanceof Error ? error.message : "Failed to submit order.",
     };
   }
 };
@@ -206,7 +288,7 @@ export const getOrderById = async (params: {
       userId: params.userId,
       eventType: "IMPRESSION",
       resourceType: "ORDER_DETAIL",
-      resourceId: String(params.orderId)
+      resourceId: String(params.orderId),
     });
   }
 

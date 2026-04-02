@@ -16,6 +16,7 @@
             <th>Pickup Point</th>
             <th>Requested Commission</th>
             <th>Submitted</th>
+            <th>Commission Eligibility</th>
             <th>Decision</th>
           </tr>
         </thead>
@@ -23,15 +24,30 @@
           <tr v-for="item in pending" :key="item.id">
             <td>#{{ item.id }}</td>
             <td>{{ item.userId }}</td>
-            <td>{{ item.pickupPointId ?? 'N/A' }}</td>
-            <td>{{ item.requestedCommissionEligible ? 'Yes' : 'No' }}</td>
+            <td>{{ item.pickupPointId ?? "N/A" }}</td>
+            <td>{{ item.requestedCommissionEligible ? "Yes" : "No" }}</td>
             <td>{{ formatDate(item.submittedAt) }}</td>
             <td>
+              <select
+                v-model="commissionEligibleById[item.id]"
+                :disabled="loadingId === item.id"
+              >
+                <option :value="true">Eligible</option>
+                <option :value="false">Not Eligible</option>
+              </select>
+            </td>
+            <td>
               <div class="inline-actions">
-                <button @click="review(item.id, 'APPROVE')" :disabled="loadingId === item.id">
+                <button
+                  @click="review(item.id, 'APPROVE')"
+                  :disabled="loadingId === item.id"
+                >
                   Approve
                 </button>
-                <button @click="review(item.id, 'REJECT')" :disabled="loadingId === item.id">
+                <button
+                  @click="review(item.id, 'REJECT')"
+                  :disabled="loadingId === item.id"
+                >
                   Reject
                 </button>
               </div>
@@ -54,44 +70,63 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue';
-import { leaderApi } from '../api/leaderApi';
-import type { LeaderApplicationRecord } from '../types/leaders';
+import { onMounted, ref } from "vue";
+import { leaderApi } from "../api/leaderApi";
+import type { LeaderApplicationRecord } from "../types/leaders";
 
 const pending = ref<LeaderApplicationRecord[]>([]);
 const loadingId = ref<number | null>(null);
-const message = ref('');
-const error = ref('');
+const message = ref("");
+const error = ref("");
+const commissionEligibleById = ref<Record<number, boolean>>({});
 
 const formatDate = (value: string) => new Date(value).toLocaleString();
 
 const loadPending = async () => {
-  error.value = '';
+  error.value = "";
   try {
     const response = await leaderApi.getPendingApplications();
     pending.value = response.data;
+
+    const nextEligibility: Record<number, boolean> = {};
+    for (const item of response.data) {
+      nextEligibility[item.id] =
+        commissionEligibleById.value[item.id] ??
+        item.requestedCommissionEligible;
+    }
+    commissionEligibleById.value = nextEligibility;
   } catch (err) {
-    error.value = err instanceof Error ? err.message : 'Failed to load pending applications.';
+    error.value =
+      err instanceof Error
+        ? err.message
+        : "Failed to load pending applications.";
   }
 };
 
-const review = async (applicationId: number, decision: 'APPROVE' | 'REJECT') => {
+const review = async (
+  applicationId: number,
+  decision: "APPROVE" | "REJECT",
+) => {
   loadingId.value = applicationId;
-  error.value = '';
-  message.value = '';
+  error.value = "";
+  message.value = "";
   try {
+    const commissionEligible =
+      commissionEligibleById.value[applicationId] ?? false;
+
     await leaderApi.decideApplication(applicationId, {
       decision,
       reason:
-        decision === 'APPROVE'
-          ? 'Credentials verified and approved.'
-          : 'Application rejected due to incomplete requirements.',
-      commissionEligible: decision === 'APPROVE'
+        decision === "APPROVE"
+          ? "Credentials verified and approved."
+          : "Application rejected due to incomplete requirements.",
+      commissionEligible,
     });
-    message.value = `Application #${applicationId} ${decision === 'APPROVE' ? 'approved' : 'rejected'}.`;
+    message.value = `Application #${applicationId} ${decision === "APPROVE" ? "approved" : "rejected"} with commission eligibility set to ${commissionEligible ? "eligible" : "not eligible"}.`;
     await loadPending();
   } catch (err) {
-    error.value = err instanceof Error ? err.message : 'Failed to submit decision.';
+    error.value =
+      err instanceof Error ? err.message : "Failed to submit decision.";
   } finally {
     loadingId.value = null;
   }

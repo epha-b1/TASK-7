@@ -21,6 +21,7 @@ vi.mock("../../src/features/discussions/services/discussionService", () => ({
   createThreadComment: vi.fn(),
   flagComment: vi.fn(),
   getThreadComments: vi.fn(),
+  resolveThreadByContext: vi.fn(),
   listUserNotifications: vi.fn(),
   patchNotificationReadState: vi.fn(),
 }));
@@ -152,6 +153,44 @@ describe("route authorization matrix", () => {
 
     expect(response.status).toBe(200);
     expect(response.body.discussionId).toBe(7);
+  });
+
+  it("returns forbidden when thread resolution is blocked by object-level access rules", async () => {
+    mockedDiscussionService.resolveThreadByContext.mockRejectedValue(
+      new Error("THREAD_FORBIDDEN"),
+    );
+
+    const app = withAuth();
+    app.use(discussionRouter);
+
+    const response = await request(app)
+      .get("/threads/resolve?contextType=ORDER&contextId=44")
+      .set("x-role", "REVIEWER");
+
+    expect(response.status).toBe(403);
+    expect(response.body.error.code).toBe("THREAD_FORBIDDEN");
+  });
+
+  it("resolves discussion thread id for authorized users", async () => {
+    mockedDiscussionService.resolveThreadByContext.mockResolvedValue({
+      discussionId: 99,
+      contextType: "ORDER",
+      contextId: 44,
+    });
+
+    const app = withAuth();
+    app.use(discussionRouter);
+
+    const response = await request(app)
+      .get("/threads/resolve?contextType=ORDER&contextId=44")
+      .set("x-role", "FINANCE_CLERK");
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({
+      discussionId: 99,
+      contextType: "ORDER",
+      contextId: 44,
+    });
   });
 
   it("requires administrator role for audit search", async () => {

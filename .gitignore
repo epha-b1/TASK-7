@@ -2,4 +2,4 @@
 .cookiejar
 np.cookies
 *.cookies
-./.tmp/*
+/.tmp/*

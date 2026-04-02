@@ -459,6 +459,8 @@ export const getCommentAppealContext = async (
   discussionId: number;
   contextType: "LISTING" | "ORDER";
   contextId: number;
+  isHidden: boolean;
+  flagCount: number;
 } | null> => {
   const [rows] = await dbPool.query<
     {
@@ -466,12 +468,16 @@ export const getCommentAppealContext = async (
       discussion_id: number;
       context_type: "LISTING" | "ORDER";
       context_id: number;
+      is_hidden: number;
+      flag_count: number;
     }[]
   >(
     `SELECT c.id AS comment_id,
             c.discussion_id,
             d.context_type,
-            d.context_id
+            d.context_id,
+            c.is_hidden,
+            (SELECT COUNT(*) FROM comment_flags cf WHERE cf.comment_id = c.id) AS flag_count
      FROM comments c
      JOIN discussions d ON d.id = c.discussion_id
      WHERE c.id = ?
@@ -489,6 +495,8 @@ export const getCommentAppealContext = async (
     discussionId: row.discussion_id,
     contextType: row.context_type,
     contextId: row.context_id,
+    isHidden: row.is_hidden === 1,
+    flagCount: Number(row.flag_count),
   };
 };
 

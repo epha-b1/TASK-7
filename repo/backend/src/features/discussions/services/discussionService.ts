@@ -21,8 +21,14 @@ import type {
 import type { RoleName } from "../../../auth/roles";
 import { recordServerBehaviorEvent } from "../../behavior/services/behaviorService";
 import { recordAuditLog } from "../../audit/services/auditService";
+import { logger } from "../../../utils/logger";
 
 const mentionRegex = /@([a-zA-Z0-9_]{2,64})/g;
+
+const orderThreadElevatedRoles = new Set<RoleName>([
+  "FINANCE_CLERK",
+  "ADMINISTRATOR",
+]);
 
 const extractMentionUsernames = (body: string): string[] => {
   const usernames = new Set<string>();
@@ -36,8 +42,8 @@ const extractMentionUsernames = (body: string): string[] => {
   return Array.from(usernames.values());
 };
 
-const hasPrivilegedDiscussionAccess = (roles: RoleName[]): boolean =>
-  roles.some((role) => role !== "MEMBER");
+const hasElevatedOrderThreadAccess = (roles: RoleName[]): boolean =>
+  roles.some((role) => orderThreadElevatedRoles.has(role));
 
 const assertDiscussionAccess = async (params: {
   contextType: DiscussionContextType;
@@ -49,7 +55,7 @@ const assertDiscussionAccess = async (params: {
     return;
   }
 
-  if (hasPrivilegedDiscussionAccess(params.roles)) {
+  if (hasElevatedOrderThreadAccess(params.roles)) {
     return;
   }
 
@@ -201,9 +207,36 @@ export const getThreadComments = async (params: {
   };
 };
 
+export const resolveThreadByContext = async (params: {
+  contextType: DiscussionContextType;
+  contextId: number;
+  userId: number;
+  roles: RoleName[];
+}) => {
+  await assertDiscussionAccess({
+    contextType: params.contextType,
+    contextId: params.contextId,
+    userId: params.userId,
+    roles: params.roles,
+  });
+
+  const discussion = await getOrCreateDiscussion({
+    contextType: params.contextType,
+    contextId: params.contextId,
+    createdByUserId: params.userId,
+  });
+
+  return {
+    discussionId: discussion.id,
+    contextType: discussion.contextType,
+    contextId: discussion.contextId,
+  };
+};
+
 export const flagComment = async (params: {
   commentId: number;
   flaggedByUserId: number;
+  roles: RoleName[];
   reason: string;
 }) => {
   const comment = await findCommentById(params.commentId);
@@ -211,11 +244,34 @@ export const flagComment = async (params: {
     throw new Error("COMMENT_NOT_FOUND");
   }
 
-  await addCommentFlag(params);
+  const discussion = await getDiscussionById(comment.discussionId);
+  if (!discussion) {
+    throw new Error("COMMENT_NOT_FOUND");
+  }
+
+  await assertDiscussionAccess({
+    contextType: discussion.contextType,
+    contextId: discussion.contextId,
+    userId: params.flaggedByUserId,
+    roles: params.roles,
+  });
+
+  const hidden = await addCommentFlag({
+    commentId: params.commentId,
+    flaggedByUserId: params.flaggedByUserId,
+    reason: params.reason,
+  });
+
+  logger.info("discussion.comment.flagged", "Comment flagged for moderation", {
+    discussionId: discussion.id,
+    commentId: params.commentId,
+    flaggedByUserId: params.flaggedByUserId,
+    hidden,
+  });
 
   return {
     commentId: params.commentId,
-    hidden: true,
+    hidden,
   };
 };
 

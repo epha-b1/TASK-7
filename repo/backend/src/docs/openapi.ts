@@ -181,6 +181,17 @@ export const openApiSpec = {
         },
       },
     },
+    "/threads/resolve": {
+      get: {
+        tags: ["Discussions"],
+        summary: "Resolve or create thread by context",
+        security: [{ cookieAuth: [] }],
+        responses: {
+          "200": { description: "Thread resolved" },
+          "403": { description: "Forbidden" },
+        },
+      },
+    },
     "/comments/{id}/flag": {
       post: {
         tags: ["Discussions"],

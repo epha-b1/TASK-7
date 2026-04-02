@@ -15,6 +15,7 @@
         >
           Submit Appeal
         </router-link>
+        <button @click="openOrderDiscussion">Open Discussion</button>
       </div>
     </div>
 
@@ -82,13 +83,15 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
-import { useRoute } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 import { resolveRoleHomePath } from "../constants/roles";
+import { discussionApi } from "../api/discussionApi";
 import { orderApi } from "../api/orderApi";
 import { useAuthStore } from "../stores/authStore";
 import type { OrderDetail } from "../types/orders";
 
 const route = useRoute();
+const router = useRouter();
 const authStore = useAuthStore();
 
 const loading = ref(false);
@@ -102,7 +105,7 @@ const prettyTrace = computed(() =>
 const backPath = computed(() =>
   authStore.roles.includes("MEMBER")
     ? "/member/cycles"
-    : resolveRoleHomePath(authStore.roles) ?? "/login",
+    : (resolveRoleHomePath(authStore.roles) ?? "/login"),
 );
 
 const fetchOrder = async () => {
@@ -115,6 +118,27 @@ const fetchOrder = async () => {
     error.value = err instanceof Error ? err.message : "Failed to load order.";
   } finally {
     loading.value = false;
+  }
+};
+
+const openOrderDiscussion = async () => {
+  if (!order.value) {
+    return;
+  }
+
+  try {
+    const thread = await discussionApi.resolveThread({
+      contextType: "ORDER",
+      contextId: order.value.id,
+    });
+
+    await router.push({
+      name: "discussion-thread",
+      params: { id: String(thread.discussionId) },
+    });
+  } catch (err) {
+    error.value =
+      err instanceof Error ? err.message : "Failed to open discussion.";
   }
 };
 
