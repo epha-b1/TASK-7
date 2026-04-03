@@ -10,6 +10,7 @@ import {
 const querySchema = z.object({
   actorUserId: z.coerce.number().int().positive().optional(),
   resourceType: z.string().trim().min(1).optional(),
+  resourceId: z.string().trim().min(1).optional(),
   action: z
     .enum([
       "UPLOAD",

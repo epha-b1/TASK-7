@@ -95,6 +95,10 @@ export const searchAuditLogs = async (params: AuditSearchParams): Promise<{ tota
     filters.push('resource_type = ?');
     values.push(params.resourceType);
   }
+  if (params.resourceId) {
+    filters.push('resource_id = ?');
+    values.push(params.resourceId);
+  }
   if (params.action) {
     filters.push('action = ?');
     values.push(params.action);

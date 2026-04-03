@@ -37,7 +37,7 @@ const pendingApp = {
   fullName: "Leader Candidate",
   phone: "555-9999",
   experienceSummary: "Has managed a group for two years.",
-  governmentIdLast4: "1234",
+  governmentIdLast4: "****1234",
   certificationName: "Food Handler Certificate",
   certificationIssuer: "State Health Dept",
   yearsOfExperience: 5,
@@ -68,7 +68,7 @@ describe("AdministratorHomePage", () => {
 
     expect(wrapper.text()).toContain("#5");
     expect(wrapper.text()).toContain("12");
-    expect(wrapper.text()).toContain("****1234");
+    expect(wrapper.text()).toContain("****1234"); // server returns pre-masked value
     expect(wrapper.text()).toContain("Food Handler Certificate");
     expect(wrapper.text()).toContain("State Health Dept");
     expect(wrapper.text()).toContain("5");

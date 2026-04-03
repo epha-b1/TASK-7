@@ -18,6 +18,10 @@
         <input v-model="filters.resourceType" placeholder="e.g. APPEAL" />
       </label>
       <label>
+        Resource ID
+        <input v-model="filters.resourceId" placeholder="e.g. 42" />
+      </label>
+      <label>
         Action
         <select v-model="filters.action">
           <option value="">Any</option>
@@ -101,6 +105,7 @@ const chainResult = ref<AuditChainResult | null>(null);
 const filters = reactive({
   actorUserId: undefined as number | undefined,
   resourceType: '',
+  resourceId: '',
   action: '',
   from: '',
   to: '',
@@ -118,6 +123,7 @@ const searchLogs = async () => {
       pageSize: 20,
       actorUserId: filters.actorUserId || undefined,
       resourceType: filters.resourceType || undefined,
+      resourceId: filters.resourceId || undefined,
       action: filters.action || undefined,
       from: filters.from || undefined,
       to: filters.to || undefined,
@@ -140,6 +146,7 @@ const exportCsv = async () => {
     const csv = await auditApi.exportCsv({
       actorUserId: filters.actorUserId || undefined,
       resourceType: filters.resourceType || undefined,
+      resourceId: filters.resourceId || undefined,
       action: filters.action || undefined,
       from: filters.from || undefined,
       to: filters.to || undefined,

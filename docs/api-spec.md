@@ -111,9 +111,20 @@ Query params:
 
 Pagination size is fixed at 20.
 
+### GET /threads/resolve
+
+Resolves or creates a discussion thread for a given context.
+
+Query params:
+
+- `contextType` (`LISTING` | `ORDER`)
+- `contextId` (positive integer)
+
+Returns `{ discussionId, contextType, contextId }`.
+
 ### POST /comments/:id/flag
 
-Flags content for moderation and hidden-state behavior.
+Flags content for moderation and hidden-state behavior. Users cannot flag their own comments.
 
 ### GET /notifications
 
@@ -145,6 +156,12 @@ Returns appeal detail and file integrity status.
 
 Returns appeal timeline through intake/investigation/ruling.
 
+### GET /appeals/:id/files/:fileId/download
+
+Downloads an appeal evidence file. Requires access to the parent appeal (submitter or elevated role). Records an audit DOWNLOAD event.
+
+Response: binary file content with appropriate `Content-Type` and `Content-Disposition` headers.
+
 ### PATCH /appeals/:id/status
 
 Reviewer/admin status transition endpoint.
@@ -153,7 +170,7 @@ Reviewer/admin status transition endpoint.
 
 ### POST /leaders/applications
 
-Submit leader onboarding application.
+Submit leader onboarding application with credential fields (government ID last 4 digits, certification, experience).
 
 ### GET /leaders/applications/me
 
@@ -161,7 +178,7 @@ Get current user leader application status.
 
 ### GET /admin/leaders/applications/pending
 
-Admin view for pending applications.
+Admin view for pending applications including credential details for review.
 
 ### POST /admin/leaders/applications/:id/decision
 
@@ -169,7 +186,7 @@ Admin approval/rejection with commission eligibility.
 
 ### GET /leaders/dashboard/metrics
 
-Leader performance metrics endpoint.
+Leader performance metrics endpoint showing order volume, fulfillment rate, and member feedback trends.
 
 ## Finance
 
@@ -206,9 +223,11 @@ Role: `ADMINISTRATOR`
 
 Privileged search endpoint over audit records.
 
+Query params: `actorUserId`, `resourceType`, `resourceId`, `action`, `from`, `to`, `page`, `pageSize`.
+
 ### GET /audit/logs/export
 
-Exports filtered audit logs as CSV.
+Exports filtered audit logs as CSV with the same filter params.
 
 ### GET /audit/logs/verify-chain
 
@@ -234,15 +253,31 @@ Automatic background retention can be enabled with `BEHAVIOR_RETENTION_RUN_INTER
 
 ## Error Contract
 
-Typical shape:
+All API responses use a consistent envelope:
+
+Success:
 
 ```json
 {
-  "error": "ERROR_CODE_OR_MESSAGE",
-  "details": []
+  "success": true,
+  "data": { ... }
+}
+```
+
+Error:
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": "ERROR_CODE",
+    "message": "Human-readable error description.",
+    "details": []
+  }
 }
 ```
 
 - Validation errors return `400` with `details` array.
 - Auth errors return `401`/`403`.
 - Conflict scenarios return `409`.
+- Account lockout returns `423`.

@@ -29,6 +29,7 @@ const buildQuery = (params: {
   pageSize?: number;
   actorUserId?: number;
   resourceType?: string;
+  resourceId?: string;
   action?: string;
   from?: string;
   to?: string;
@@ -38,6 +39,7 @@ const buildQuery = (params: {
   q.set("pageSize", String(params.pageSize ?? 20));
   if (params.actorUserId) q.set("actorUserId", String(params.actorUserId));
   if (params.resourceType) q.set("resourceType", params.resourceType);
+  if (params.resourceId) q.set("resourceId", params.resourceId);
   if (params.action) q.set("action", params.action);
   if (params.from) q.set("from", params.from);
   if (params.to) q.set("to", params.to);
@@ -50,6 +52,7 @@ export const auditApi = {
     pageSize?: number;
     actorUserId?: number;
     resourceType?: string;
+    resourceId?: string;
     action?: string;
     from?: string;
     to?: string;
@@ -58,6 +61,7 @@ export const auditApi = {
   exportCsv: async (params: {
     actorUserId?: number;
     resourceType?: string;
+    resourceId?: string;
     action?: string;
     from?: string;
     to?: string;

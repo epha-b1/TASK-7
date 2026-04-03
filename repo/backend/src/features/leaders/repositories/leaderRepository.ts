@@ -1,4 +1,5 @@
 import { dbPool } from "../../../db/pool";
+import { encryptAtRest, decryptAtRest } from "../../../security/dataEncryption";
 import type {
   CreateLeaderApplicationInput,
   LeaderApplicationDecision,
@@ -94,7 +95,7 @@ export const getLatestApplicationByUserId = async (
     fullName: row.full_name,
     phone: row.phone,
     experienceSummary: row.experience_summary,
-    governmentIdLast4: row.government_id_last4,
+    governmentIdLast4: row.government_id_last4 ? `****${decryptAtRest(row.government_id_last4)}` : null,
     certificationName: row.certification_name,
     certificationIssuer: row.certification_issuer,
     yearsOfExperience: row.years_of_experience,
@@ -127,7 +128,7 @@ export const createLeaderApplication = async (params: {
       params.input.fullName,
       params.input.phone,
       params.input.experienceSummary,
-      params.input.governmentIdLast4 ?? null,
+      params.input.governmentIdLast4 ? encryptAtRest(params.input.governmentIdLast4) : null,
       params.input.certificationName ?? null,
       params.input.certificationIssuer ?? null,
       params.input.yearsOfExperience ?? null,
@@ -190,7 +191,7 @@ export const listPendingApplications = async (): Promise<
     fullName: row.full_name,
     phone: row.phone,
     experienceSummary: row.experience_summary,
-    governmentIdLast4: row.government_id_last4,
+    governmentIdLast4: row.government_id_last4 ? `****${decryptAtRest(row.government_id_last4)}` : null,
     certificationName: row.certification_name,
     certificationIssuer: row.certification_issuer,
     yearsOfExperience: row.years_of_experience,
@@ -392,14 +393,19 @@ const listDerivedMetrics = async (params: {
       metric_date: string;
       order_volume: number;
       fulfilled_orders: number;
+      feedback_score_avg: string | null;
+      feedback_count: number;
     }>
   >(
     `SELECT DATE(o.created_at) AS metric_date,
             COUNT(DISTINCT o.id) AS order_volume,
-            SUM(CASE WHEN o.status = 'CONFIRMED' THEN 1 ELSE 0 END) AS fulfilled_orders
+            SUM(CASE WHEN o.status IN ('FULFILLED', 'PICKED_UP') THEN 1 ELSE 0 END) AS fulfilled_orders,
+            AVG(ofb.score) AS feedback_score_avg,
+            COUNT(ofb.id) AS feedback_count
      FROM orders o
      JOIN order_items oi ON oi.order_id = o.id
      JOIN listings l ON l.id = oi.listing_id
+     LEFT JOIN order_feedback ofb ON ofb.order_id = o.id
      WHERE l.leader_user_id = ?
        AND DATE(o.created_at) BETWEEN ? AND ?
      GROUP BY DATE(o.created_at)
@@ -411,8 +417,8 @@ const listDerivedMetrics = async (params: {
     metricDate: row.metric_date,
     orderVolume: Number(row.order_volume),
     fulfilledOrders: Number(row.fulfilled_orders),
-    feedbackScoreAvg: null,
-    feedbackCount: 0,
+    feedbackScoreAvg: row.feedback_score_avg === null ? null : Number(Number(row.feedback_score_avg).toFixed(2)),
+    feedbackCount: Number(row.feedback_count),
   }));
 };
 

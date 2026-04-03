@@ -32,7 +32,7 @@
           <div>
             <p>
               <strong>Gov ID (last 4):</strong>
-              {{ item.governmentIdLast4 ? `****${item.governmentIdLast4}` : "Not provided" }}
+              {{ item.governmentIdLast4 || "Not provided" }}
             </p>
             <p>
               <strong>Certification:</strong>

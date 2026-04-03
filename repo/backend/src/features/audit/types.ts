@@ -23,6 +23,7 @@ export type AuditLogRecord = {
 export type AuditSearchParams = {
   actorUserId?: number;
   resourceType?: string;
+  resourceId?: string;
   action?: AuditAction;
   from?: string;
   to?: string;
