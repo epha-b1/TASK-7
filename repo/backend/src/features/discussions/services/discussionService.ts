@@ -27,7 +27,6 @@ const mentionRegex = /@([a-zA-Z0-9_]{2,64})/g;
 
 const orderThreadElevatedRoles = new Set<RoleName>([
   "REVIEWER",
-  "FINANCE_CLERK",
   "ADMINISTRATOR",
 ]);
 
@@ -162,6 +161,16 @@ export const createThreadComment = async (params: {
     }
   }
 
+  logger.info("discussion.comment.created", "New comment posted", {
+    discussionId: discussion.id,
+    commentId: created.commentId,
+    userId: params.userId,
+    contextType: params.input.contextType,
+    contextId: params.input.contextId,
+    hasMentions: dedupedMentions.length > 0,
+    isReply: !!params.input.parentCommentId,
+  });
+
   return {
     discussionId: discussion.id,
     commentId: created.commentId,
@@ -243,6 +252,10 @@ export const flagComment = async (params: {
   const comment = await findCommentById(params.commentId);
   if (!comment) {
     throw new Error("COMMENT_NOT_FOUND");
+  }
+
+  if (comment.userId === params.flaggedByUserId) {
+    throw new Error("CANNOT_FLAG_OWN_COMMENT");
   }
 
   const discussion = await getDiscussionById(comment.discussionId);

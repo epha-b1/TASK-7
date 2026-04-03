@@ -15,6 +15,7 @@ import {
 import type { CommissionRow, WithdrawalEligibility } from "../types";
 import { recordAuditLog } from '../../audit/services/auditService';
 import { getLeaderByUserId } from "../../leaders/repositories/leaderRepository";
+import { logger } from '../../../utils/logger';
 
 const DAILY_WITHDRAWAL_LIMIT = 500;
 const WEEKLY_WITHDRAWAL_LIMIT_COUNT = 2;
@@ -136,6 +137,13 @@ export const requestWithdrawal = async (params: {
     approvedAmount: withdrawal.requestedAmount,
   });
 
+  logger.info('finance.withdrawal.approved', 'Withdrawal request processed', {
+    withdrawalId: withdrawal.id,
+    leaderUserId: params.leaderUserId,
+    amount: withdrawal.requestedAmount,
+    requestedByUserId: params.requestedByUserId,
+  });
+
   await recordAuditLog({
     actorUserId: params.requestedByUserId,
     action: 'APPROVAL',
@@ -234,6 +242,12 @@ export const addOrReplaceBlacklist = async (params: {
   createdByUserId: number;
 }) => {
   await upsertBlacklistEntry(params);
+
+  logger.info('finance.blacklist.upserted', 'Withdrawal blacklist entry updated', {
+    targetUserId: params.userId,
+    active: params.active,
+    actorUserId: params.createdByUserId,
+  });
 
   await recordAuditLog({
     actorUserId: params.createdByUserId,

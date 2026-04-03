@@ -224,8 +224,7 @@ export const createAppealRecord = async (params: {
 
     if (
       params.input.sourceType === "HIDDEN_CONTENT_BANNER" &&
-      !commentContext.isHidden &&
-      commentContext.flagCount < 1
+      !commentContext.isHidden
     ) {
       throw new Error("SOURCE_COMMENT_NOT_HIDDEN");
     }
@@ -351,7 +350,16 @@ export const uploadAppealFiles = async (params: {
 
   return {
     appealId: appeal.id,
-    uploaded: inserted,
+    uploaded: inserted.map((file) => ({
+      id: file.id,
+      appealId: file.appealId,
+      originalFileName: file.originalFileName,
+      mimeType: file.mimeType,
+      fileSizeBytes: file.fileSizeBytes,
+      checksumSha256: file.checksumSha256,
+      uploadedByUserId: file.uploadedByUserId,
+      createdAt: file.createdAt,
+    })),
   };
 };
 
@@ -372,13 +380,24 @@ export const getAppealDetail = async (params: {
 
   const files = await listAppealFiles(appeal.id);
   const filesWithIntegrity = await Promise.all(
-    files.map(async (file) => ({
-      ...file,
-      integrityStatus: await verifyStoredFileIntegrity({
+    files.map(async (file) => {
+      const integrityStatus = await verifyStoredFileIntegrity({
         storageRelativePath: file.storageRelativePath,
         checksumSha256: file.checksumSha256,
-      }),
-    })),
+      });
+
+      return {
+        id: file.id,
+        appealId: file.appealId,
+        originalFileName: file.originalFileName,
+        mimeType: file.mimeType,
+        fileSizeBytes: file.fileSizeBytes,
+        checksumSha256: file.checksumSha256,
+        integrityStatus,
+        uploadedByUserId: file.uploadedByUserId,
+        createdAt: file.createdAt,
+      };
+    }),
   );
 
   return {

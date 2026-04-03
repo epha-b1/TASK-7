@@ -421,7 +421,7 @@ export const getOrderDetailById = async (params: {
   userId: number;
   roles: string[];
 }): Promise<OrderDetail | null> => {
-  const isFinance = params.roles.includes('FINANCE_CLERK') || params.roles.includes('ADMINISTRATOR');
+  const isPrivileged = params.roles.includes('FINANCE_CLERK') || params.roles.includes('ADMINISTRATOR') || params.roles.includes('REVIEWER');
 
   const [orderRows] = await dbPool.query<
     {
@@ -462,7 +462,7 @@ export const getOrderDetailById = async (params: {
      WHERE o.id = ?
        AND (? = 1 OR o.user_id = ?)
      LIMIT 1`,
-    [params.orderId, isFinance ? 1 : 0, params.userId]
+    [params.orderId, isPrivileged ? 1 : 0, params.userId]
   );
 
   if (orderRows.length === 0) {

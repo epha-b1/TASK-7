@@ -7,6 +7,7 @@ import {
 } from '../repositories/leaderRepository';
 import type { CreateLeaderApplicationInput, LeaderDecisionInput } from '../types';
 import { recordAuditLog } from '../../audit/services/auditService';
+import { logger } from '../../../utils/logger';
 
 const asUtcDate = (value: Date): string => value.toISOString().slice(0, 10);
 
@@ -43,6 +44,13 @@ export const reviewLeaderApplication = async (params: {
     decision,
     reason: params.input.reason,
     commissionEligible: params.input.commissionEligible
+  });
+
+  logger.info('leaders.application.reviewed', 'Leader application decision recorded', {
+    applicationId: params.applicationId,
+    adminUserId: params.adminUserId,
+    decision,
+    commissionEligible: params.input.commissionEligible,
   });
 
   await recordAuditLog({

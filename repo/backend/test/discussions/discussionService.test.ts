@@ -108,27 +108,23 @@ describe("discussion service", () => {
     ).rejects.toThrow("THREAD_FORBIDDEN");
   });
 
-  it("allows finance role access to order thread without ownership", async () => {
+  it("blocks finance role access to order thread without ownership", async () => {
     mockedRepo.getDiscussionById.mockResolvedValue({
       id: 102,
       contextType: "ORDER",
       contextId: 88,
     });
-    mockedRepo.getThreadCommentsPage.mockResolvedValue({
-      total: 1,
-      comments: [],
-    });
+    mockedRepo.isOrderOwnedByUser.mockResolvedValue(false);
 
-    await getThreadComments({
-      discussionId: 102,
-      page: 1,
-      sort: "newest",
-      userId: 14,
-      roles: ["FINANCE_CLERK"],
-    });
-
-    expect(mockedRepo.isOrderOwnedByUser).not.toHaveBeenCalled();
-    expect(mockedRepo.getThreadCommentsPage).toHaveBeenCalled();
+    await expect(
+      getThreadComments({
+        discussionId: 102,
+        page: 1,
+        sort: "newest",
+        userId: 14,
+        roles: ["FINANCE_CLERK"],
+      }),
+    ).rejects.toThrow("THREAD_FORBIDDEN");
   });
 
   it("allows reviewer access to order thread without ownership", async () => {

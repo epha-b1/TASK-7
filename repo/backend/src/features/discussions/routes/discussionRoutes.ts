@@ -74,6 +74,19 @@ const handleDiscussionError = (error: unknown, response: Response): boolean => {
     return true;
   }
 
+  if (
+    error instanceof Error &&
+    error.message === "CANNOT_FLAG_OWN_COMMENT"
+  ) {
+    sendError(
+      response,
+      403,
+      "You cannot flag your own comment.",
+      "CANNOT_FLAG_OWN_COMMENT",
+    );
+    return true;
+  }
+
   if (error instanceof Error && error.message === "THREAD_FORBIDDEN") {
     sendError(
       response,

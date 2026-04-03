@@ -15,7 +15,6 @@ export type AppealFile = {
   originalFileName: string;
   mimeType: string;
   fileSizeBytes: number;
-  storageRelativePath: string;
   checksumSha256: string;
   integrityStatus?: "VERIFIED" | "MISSING" | "CHECKSUM_MISMATCH";
   uploadedByUserId: number;
