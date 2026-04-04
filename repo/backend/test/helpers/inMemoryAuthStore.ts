@@ -32,9 +32,14 @@ export class InMemoryAuthStore implements AuthStore {
 
   public async listRecentAttempts(
     username: string,
-    limit: number
+    limit: number,
+    windowMinutes?: number
   ): Promise<AuthAttemptRecord[]> {
-    const current = this.attempts.get(username) ?? [];
+    let current = this.attempts.get(username) ?? [];
+    if (windowMinutes) {
+      const cutoff = new Date(Date.now() - windowMinutes * 60 * 1000);
+      current = current.filter((a) => a.attemptedAt >= cutoff);
+    }
     return current.slice(0, limit);
   }
 

@@ -1,6 +1,7 @@
 import { Router, type Response } from "express";
 import { z } from "zod";
 import { requireAuth, requireRoles } from "../../../middleware/rbac";
+import { sendError, sendSuccess } from "../../../utils/apiResponse";
 import {
   getLeaderDashboard,
   getMyLeaderApplication,
@@ -34,9 +35,7 @@ const dashboardQuerySchema = z.object({
 
 const handleLeaderError = (error: unknown, response: Response): boolean => {
   if (error instanceof z.ZodError) {
-    response
-      .status(400)
-      .json({ error: "Invalid request payload.", details: error.issues });
+    sendError(response, 400, "Invalid request payload.", "INVALID_REQUEST_PAYLOAD", error.issues);
     return true;
   }
 
@@ -44,9 +43,7 @@ const handleLeaderError = (error: unknown, response: Response): boolean => {
     error instanceof Error &&
     error.message === "LEADER_APPLICATION_ALREADY_PENDING"
   ) {
-    response
-      .status(409)
-      .json({ error: "A pending application already exists for this leader." });
+    sendError(response, 409, "A pending application already exists for this leader.", "LEADER_APPLICATION_ALREADY_PENDING");
     return true;
   }
 
@@ -54,7 +51,7 @@ const handleLeaderError = (error: unknown, response: Response): boolean => {
     error instanceof Error &&
     error.message === "LEADER_APPLICATION_NOT_FOUND"
   ) {
-    response.status(404).json({ error: "Leader application not found." });
+    sendError(response, 404, "Leader application not found.", "LEADER_APPLICATION_NOT_FOUND");
     return true;
   }
 
@@ -62,9 +59,7 @@ const handleLeaderError = (error: unknown, response: Response): boolean => {
     error instanceof Error &&
     error.message === "LEADER_APPLICATION_ALREADY_REVIEWED"
   ) {
-    response
-      .status(409)
-      .json({ error: "Leader application has already been reviewed." });
+    sendError(response, 409, "Leader application has already been reviewed.", "LEADER_APPLICATION_ALREADY_REVIEWED");
     return true;
   }
 
@@ -84,7 +79,7 @@ leaderRouter.post(
         userId: request.auth!.userId,
         input: payload,
       });
-      response.status(201).json(result);
+      sendSuccess(response, result, 201);
     } catch (error) {
       if (handleLeaderError(error, response)) {
         return;
@@ -101,7 +96,7 @@ leaderRouter.get(
   async (request, response, next) => {
     try {
       const result = await getMyLeaderApplication(request.auth!.userId);
-      response.json({ data: result });
+      sendSuccess(response, result);
     } catch (error) {
       if (handleLeaderError(error, response)) {
         return;
@@ -118,7 +113,7 @@ leaderRouter.get(
   async (_request, response, next) => {
     try {
       const data = await getPendingLeaderApplications();
-      response.json({ data });
+      sendSuccess(response, data);
     } catch (error) {
       if (handleLeaderError(error, response)) {
         return;
@@ -145,7 +140,7 @@ leaderRouter.post(
         adminUserId: request.auth!.userId,
         input: payload,
       });
-      response.json(result);
+      sendSuccess(response, result);
     } catch (error) {
       if (handleLeaderError(error, response)) {
         return;
@@ -169,15 +164,11 @@ leaderRouter.get(
       });
 
       if (!data) {
-        response
-          .status(404)
-          .json({
-            error: "Leader record not found. Apply for onboarding first.",
-          });
+        sendError(response, 404, "Leader record not found. Apply for onboarding first.", "LEADER_NOT_FOUND");
         return;
       }
 
-      response.json(data);
+      sendSuccess(response, data);
     } catch (error) {
       if (handleLeaderError(error, response)) {
         return;

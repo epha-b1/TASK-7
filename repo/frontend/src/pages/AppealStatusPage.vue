@@ -139,7 +139,7 @@ const canModerate = computed(() =>
 );
 const backPath = computed(() =>
   appeal.value?.sourceOrderId &&
-  hasAnyRole(authStore.roles, ["MEMBER", "FINANCE_CLERK", "ADMINISTRATOR"])
+  hasAnyRole(authStore.roles, ["MEMBER", "ADMINISTRATOR"])
     ? `/member/orders/${appeal.value.sourceOrderId}`
     : "/notifications",
 );

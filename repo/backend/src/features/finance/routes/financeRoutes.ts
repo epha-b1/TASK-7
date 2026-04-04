@@ -1,7 +1,7 @@
 import { Router, type Response } from "express";
 import { z } from "zod";
 import { requireAuth, requireRoles } from "../../../middleware/rbac";
-import { sendError } from "../../../utils/apiResponse";
+import { sendError, sendSuccess } from "../../../utils/apiResponse";
 import {
   addOrReplaceBlacklist,
   getCommissionSummary,
@@ -75,6 +75,14 @@ const handleFinanceError = (error: unknown, response: Response): boolean => {
     return true;
   }
 
+  if (
+    error instanceof Error &&
+    error.message === "LEADER_NOT_COMMISSION_ELIGIBLE"
+  ) {
+    sendError(response, 403, "Leader is not eligible for commissions.", error.message);
+    return true;
+  }
+
   return false;
 };
 
@@ -88,7 +96,7 @@ financeRouter.get(
     try {
       const query = commissionQuerySchema.parse(request.query);
       const data = await getCommissionSummary(query);
-      response.json({ data });
+      sendSuccess(response, data);
     } catch (error) {
       if (handleFinanceError(error, response)) {
         return;
@@ -127,7 +135,7 @@ financeRouter.get(
       }
 
       const data = await getWithdrawalEligibility(leaderUserId);
-      response.json(data);
+      sendSuccess(response, data);
     } catch (error) {
       if (handleFinanceError(error, response)) {
         return;
@@ -166,7 +174,7 @@ financeRouter.post(
         requestedByUserId: request.auth!.userId,
       });
 
-      response.status(201).json(result);
+      sendSuccess(response, result, 201);
     } catch (error) {
       if (handleFinanceError(error, response)) {
         return;
@@ -211,7 +219,7 @@ financeRouter.get(
   async (_request, response, next) => {
     try {
       const data = await getWithdrawalBlacklist();
-      response.json({ data });
+      sendSuccess(response, data);
     } catch (error) {
       next(error);
     }
@@ -231,7 +239,7 @@ financeRouter.post(
         active: payload.active,
         createdByUserId: request.auth!.userId,
       });
-      response.status(201).json({ ok: true });
+      sendSuccess(response, { ok: true }, 201);
     } catch (error) {
       if (handleFinanceError(error, response)) {
         return;
@@ -261,7 +269,7 @@ financeRouter.patch(
         return;
       }
 
-      response.json({ ok: true });
+      sendSuccess(response, { ok: true });
     } catch (error) {
       if (handleFinanceError(error, response)) {
         return;

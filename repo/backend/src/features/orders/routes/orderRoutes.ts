@@ -1,6 +1,7 @@
 import { Router, type Response } from 'express';
 import { z } from 'zod';
 import { requireAuth, requireRoles } from '../../../middleware/rbac';
+import { sendError, sendSuccess } from '../../../utils/apiResponse';
 import { checkoutOrder, getLedger, getOrderById, quoteOrder } from '../services/orderService';
 
 const quoteInputSchema = z.object({
@@ -20,24 +21,17 @@ const quoteInputSchema = z.object({
 
 const handleOrderError = (error: unknown, response: Response): boolean => {
   if (error instanceof z.ZodError) {
-    response.status(400).json({
-      error: 'Invalid request payload.',
-      details: error.issues
-    });
+    sendError(response, 400, 'Invalid request payload.', 'INVALID_REQUEST_PAYLOAD', error.issues);
     return true;
   }
 
   if (error instanceof Error && error.message === 'INVALID_TAX_JURISDICTION') {
-    response.status(400).json({
-      error: 'Tax jurisdiction not found.'
-    });
+    sendError(response, 400, 'Tax jurisdiction not found.', 'INVALID_TAX_JURISDICTION');
     return true;
   }
 
   if (error instanceof Error && error.message.startsWith('INSUFFICIENT_INVENTORY:')) {
-    response.status(409).json({
-      error: 'Insufficient inventory for one or more items.'
-    });
+    sendError(response, 409, 'Insufficient inventory for one or more items.', 'INSUFFICIENT_INVENTORY');
     return true;
   }
 
@@ -50,7 +44,7 @@ orderRouter.post('/orders/quote', requireAuth, requireRoles('MEMBER'), async (re
   try {
     const payload = quoteInputSchema.parse(request.body);
     const quote = await quoteOrder(payload);
-    response.json(quote);
+    sendSuccess(response, quote);
   } catch (error) {
     if (handleOrderError(error, response)) {
       return;
@@ -69,11 +63,11 @@ orderRouter.post('/orders/checkout', requireAuth, requireRoles('MEMBER'), async 
 
     if (!result.ok) {
       const status = result.code === 'CAPACITY_EXCEEDED' ? 409 : 400;
-      response.status(status).json(result);
+      sendError(response, status, result.message ?? result.code, result.code);
       return;
     }
 
-    response.status(201).json(result);
+    sendSuccess(response, result, 201);
   } catch (error) {
     if (handleOrderError(error, response)) {
       return;
@@ -92,11 +86,11 @@ orderRouter.get('/orders/:id', requireAuth, async (request, response, next) => {
     });
 
     if (!order) {
-      response.status(404).json({ error: 'Order not found.' });
+      sendError(response, 404, 'Order not found.', 'ORDER_NOT_FOUND');
       return;
     }
 
-    response.json(order);
+    sendSuccess(response, order);
   } catch (error) {
     if (handleOrderError(error, response)) {
       return;
@@ -108,7 +102,7 @@ orderRouter.get('/orders/:id', requireAuth, async (request, response, next) => {
 orderRouter.get('/finance/ledger', requireAuth, requireRoles('FINANCE_CLERK', 'ADMINISTRATOR'), async (_request, response, next) => {
   try {
     const rows = await getLedger();
-    response.json({ data: rows });
+    sendSuccess(response, rows);
   } catch (error) {
     next(error);
   }

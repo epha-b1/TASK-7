@@ -1,7 +1,7 @@
 import { Router, type Response } from "express";
 import { z } from "zod";
 import { requireAuth } from "../../../middleware/rbac";
-import { sendError } from "../../../utils/apiResponse";
+import { sendError, sendSuccess } from "../../../utils/apiResponse";
 import {
   createAppealRecord,
   getAppealDetail,
@@ -130,7 +130,7 @@ appealRouter.get("/appeals", requireAuth, async (request, response, next) => {
       status: query.status,
     });
 
-    response.json({
+    sendSuccess(response, {
       page: query.page,
       pageSize: query.pageSize,
       total: result.total,
@@ -154,7 +154,7 @@ appealRouter.post("/appeals", requireAuth, async (request, response, next) => {
       input: payload,
     });
 
-    response.status(201).json(created);
+    sendSuccess(response, created, 201);
   } catch (error) {
     if (handleAppealError(error, response)) {
       return;
@@ -182,7 +182,7 @@ appealRouter.post(
         files: payload.files,
       });
 
-      response.status(201).json(result);
+      sendSuccess(response, result, 201);
     } catch (error) {
       if (handleAppealError(error, response)) {
         return;
@@ -213,7 +213,7 @@ appealRouter.get(
         return;
       }
 
-      response.json(result);
+      sendSuccess(response, result);
     } catch (error) {
       if (handleAppealError(error, response)) {
         return;
@@ -244,7 +244,7 @@ appealRouter.get(
         return;
       }
 
-      response.json(result);
+      sendSuccess(response, result);
     } catch (error) {
       if (handleAppealError(error, response)) {
         return;
@@ -317,7 +317,7 @@ appealRouter.patch(
         note: payload.note,
       });
 
-      response.json(result);
+      sendSuccess(response, result);
     } catch (error) {
       if (handleAppealError(error, response)) {
         return;

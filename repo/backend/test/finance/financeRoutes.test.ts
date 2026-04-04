@@ -73,6 +73,7 @@ describe("finance routes", () => {
       .set("x-user-id", "8");
 
     expect(response.status).toBe(200);
+    expect(response.body.success).toBe(true);
     expect(mockedFinanceService.getWithdrawalEligibility).toHaveBeenCalledWith(8);
   });
 

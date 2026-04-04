@@ -70,15 +70,26 @@ export class MySqlAuthStore implements AuthStore {
 
   public async listRecentAttempts(
     username: string,
-    limit: number
+    limit: number,
+    windowMinutes?: number
   ): Promise<AuthAttemptRecord[]> {
+    const windowClause = windowMinutes
+      ? `AND attempted_at >= DATE_SUB(UTC_TIMESTAMP(), INTERVAL ? MINUTE)`
+      : '';
+    const params: Array<string | number> = [username];
+    if (windowMinutes) {
+      params.push(windowMinutes);
+    }
+    params.push(limit);
+
     const [rows] = await dbPool.query<{ success: number; attempted_at: Date | string }[]>(
       `SELECT success, attempted_at
        FROM auth_attempts
        WHERE username = ?
+       ${windowClause}
        ORDER BY attempted_at DESC
        LIMIT ?`,
-      [username, limit]
+      params
     );
 
     return rows.map((row: { success: number; attempted_at: Date | string }) => ({

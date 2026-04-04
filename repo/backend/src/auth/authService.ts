@@ -198,6 +198,7 @@ export class AuthService {
     const attempts = await this.store.listRecentAttempts(
       username,
       env.lockoutMaxAttempts,
+      env.lockoutMinutes,
     );
     if (attempts.length < env.lockoutMaxAttempts) {
       return { isLocked: false };

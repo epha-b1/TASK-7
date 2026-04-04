@@ -96,4 +96,47 @@ describe('AuthService login and lockout', () => {
       expect(blockedLogin.code).toBe('LOCKED');
     }
   });
+
+  it('does not re-lock after one post-expiry failed attempt', async () => {
+    const store = new InMemoryAuthStore();
+    const passwordHash = await hashPassword('Member#Pass123');
+    store.addUser({
+      id: 1,
+      username: 'member1',
+      passwordHash,
+      isActive: true,
+      roles: ['MEMBER']
+    });
+
+    // Seed 5 failed attempts that are older than the lockout window (>15 minutes ago)
+    const oldTime = new Date(Date.now() - 20 * 60 * 1000);
+    store.seedAttempts('member1', [
+      { success: false, attemptedAt: new Date(oldTime.getTime() + 4000) },
+      { success: false, attemptedAt: new Date(oldTime.getTime() + 3000) },
+      { success: false, attemptedAt: new Date(oldTime.getTime() + 2000) },
+      { success: false, attemptedAt: new Date(oldTime.getTime() + 1000) },
+      { success: false, attemptedAt: oldTime },
+    ]);
+
+    const service = new AuthService(store);
+
+    // Lockout should have expired since all attempts are >15 min old
+    const lockoutInfo = await service.getLockoutInfo('member1');
+    expect(lockoutInfo.isLocked).toBe(false);
+
+    // One new failed attempt should NOT trigger re-lock
+    const result = await service.login({
+      username: 'member1',
+      password: 'Wrong#Pass123'
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.code).toBe('INVALID_CREDENTIALS');
+    }
+
+    // Verify still not locked after single post-expiry failure
+    const lockoutAfter = await service.getLockoutInfo('member1');
+    expect(lockoutAfter.isLocked).toBe(false);
+  });
 });

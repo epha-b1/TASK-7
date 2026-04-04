@@ -23,7 +23,7 @@ export type SessionRecord = {
 export interface AuthStore {
   findUserByUsername(username: string): Promise<AuthUser | null>;
   findUserById(userId: number): Promise<AuthUser | null>;
-  listRecentAttempts(username: string, limit: number): Promise<AuthAttemptRecord[]>;
+  listRecentAttempts(username: string, limit: number, windowMinutes?: number): Promise<AuthAttemptRecord[]>;
   recordAuthAttempt(params: {
     username: string;
     success: boolean;

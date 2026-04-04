@@ -27,6 +27,10 @@ const assertApprovedLeader = async (leaderUserId: number) => {
     throw new Error("LEADER_NOT_ELIGIBLE_FOR_WITHDRAWAL");
   }
 
+  if (!leader.commission_eligible) {
+    throw new Error("LEADER_NOT_COMMISSION_ELIGIBLE");
+  }
+
   return leader;
 };
 

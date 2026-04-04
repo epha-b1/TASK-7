@@ -38,6 +38,37 @@ describe("finance service", () => {
     });
   });
 
+  it("excludes non-commission-eligible leaders from commission summary", async () => {
+    // When the repository returns no bases (because the query filters by commission_eligible=1),
+    // the commission summary should return an empty array for non-eligible leaders.
+    mockedRepo.getOrderCommissionBases.mockResolvedValue([]);
+
+    const rows = await getCommissionSummary({});
+
+    expect(rows).toEqual([]);
+    expect(mockedRepo.getOrderCommissionBases).toHaveBeenCalledWith({});
+  });
+
+  it("includes only commission-eligible leaders in commission summary", async () => {
+    // The repository query now JOINs leaders table with commission_eligible=1,
+    // so only eligible leaders' orders appear in the bases.
+    mockedRepo.getOrderCommissionBases.mockResolvedValue([
+      { leaderUserId: 10, pickupPointId: 3, preTaxItemTotal: 200 },
+    ]);
+    mockedRepo.getLeaderCommissionRate.mockResolvedValue(null);
+
+    const rows = await getCommissionSummary({ dateFrom: "2026-03-01", dateTo: "2026-03-31" });
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toEqual({
+      leaderUserId: 10,
+      pickupPointId: 3,
+      preTaxItemTotal: 200,
+      commissionRate: 0.06,
+      commissionAmount: 12,
+    });
+  });
+
   it("blocks eligibility when blacklisted", async () => {
     mockedLeaderRepo.getLeaderByUserId.mockResolvedValue({
       id: 5,
@@ -59,6 +90,36 @@ describe("finance service", () => {
     await expect(getWithdrawalEligibility(44)).rejects.toThrow(
       "LEADER_NOT_ELIGIBLE_FOR_WITHDRAWAL",
     );
+  });
+
+  it("blocks eligibility when leader is not commission-eligible", async () => {
+    mockedLeaderRepo.getLeaderByUserId.mockResolvedValue({
+      id: 5,
+      user_id: 20,
+      status: "APPROVED",
+      commission_eligible: 0,
+    });
+
+    await expect(getWithdrawalEligibility(20)).rejects.toThrow(
+      "LEADER_NOT_COMMISSION_ELIGIBLE",
+    );
+  });
+
+  it("blocks withdrawal when leader is approved but not commission-eligible", async () => {
+    mockedLeaderRepo.getLeaderByUserId.mockResolvedValue({
+      id: 7,
+      user_id: 7,
+      status: "APPROVED",
+      commission_eligible: 0,
+    });
+
+    await expect(
+      requestWithdrawal({
+        leaderUserId: 7,
+        amount: 50,
+        requestedByUserId: 3,
+      }),
+    ).rejects.toThrow("LEADER_NOT_COMMISSION_ELIGIBLE");
   });
 
   it("enforces daily limit on withdrawal request", async () => {

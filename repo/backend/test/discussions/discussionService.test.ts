@@ -2,6 +2,7 @@ import {
   createThreadComment,
   flagComment,
   getThreadComments,
+  resolveThreadByContext,
 } from "../../src/features/discussions/services/discussionService";
 import * as repo from "../../src/features/discussions/repositories/discussionRepository";
 import * as auditService from "../../src/features/audit/services/auditService";
@@ -23,6 +24,7 @@ describe("discussion service", () => {
   });
 
   it("generates mention notifications when @username is present", async () => {
+    mockedRepo.doesListingExist.mockResolvedValue(true);
     mockedRepo.isOrderOwnedByUser.mockResolvedValue(true);
     mockedRepo.getOrCreateDiscussion.mockResolvedValue({
       id: 100,
@@ -67,6 +69,7 @@ describe("discussion service", () => {
   });
 
   it("returns fixed page size 20 for thread response", async () => {
+    mockedRepo.doesListingExist.mockResolvedValue(true);
     mockedRepo.getDiscussionById.mockResolvedValue({
       id: 100,
       contextType: "LISTING",
@@ -90,6 +93,7 @@ describe("discussion service", () => {
   });
 
   it("blocks member access to order thread they do not own", async () => {
+    mockedRepo.doesOrderExist.mockResolvedValue(true);
     mockedRepo.getDiscussionById.mockResolvedValue({
       id: 101,
       contextType: "ORDER",
@@ -109,6 +113,7 @@ describe("discussion service", () => {
   });
 
   it("blocks finance role access to order thread without ownership", async () => {
+    mockedRepo.doesOrderExist.mockResolvedValue(true);
     mockedRepo.getDiscussionById.mockResolvedValue({
       id: 102,
       contextType: "ORDER",
@@ -128,6 +133,7 @@ describe("discussion service", () => {
   });
 
   it("allows reviewer access to order thread without ownership", async () => {
+    mockedRepo.doesOrderExist.mockResolvedValue(true);
     mockedRepo.getDiscussionById.mockResolvedValue({
       id: 103,
       contextType: "ORDER",
@@ -151,6 +157,7 @@ describe("discussion service", () => {
   });
 
   it("blocks group leader flagging on another user's order thread", async () => {
+    mockedRepo.doesOrderExist.mockResolvedValue(true);
     mockedRepo.findCommentById.mockResolvedValue({
       id: 500,
       discussionId: 99,
@@ -180,6 +187,7 @@ describe("discussion service", () => {
   });
 
   it("allows admin to flag comments without order ownership", async () => {
+    mockedRepo.doesOrderExist.mockResolvedValue(true);
     mockedRepo.findCommentById.mockResolvedValue({
       id: 501,
       discussionId: 100,
@@ -214,7 +222,42 @@ describe("discussion service", () => {
     });
   });
 
+  it("rejects thread creation for nonexistent listing context", async () => {
+    mockedRepo.doesListingExist.mockResolvedValue(false);
+
+    await expect(
+      createThreadComment({
+        input: {
+          contextType: "LISTING",
+          contextId: 99999,
+          body: "Comment on nonexistent listing",
+        },
+        userId: 1,
+        username: "member1",
+        roles: ["MEMBER"],
+      }),
+    ).rejects.toThrow("CONTEXT_NOT_FOUND");
+
+    expect(mockedRepo.getOrCreateDiscussion).not.toHaveBeenCalled();
+  });
+
+  it("rejects thread resolve for nonexistent order context", async () => {
+    mockedRepo.doesOrderExist.mockResolvedValue(false);
+
+    await expect(
+      resolveThreadByContext({
+        contextType: "ORDER",
+        contextId: 88888,
+        userId: 1,
+        roles: ["MEMBER"],
+      }),
+    ).rejects.toThrow("CONTEXT_NOT_FOUND");
+
+    expect(mockedRepo.getOrCreateDiscussion).not.toHaveBeenCalled();
+  });
+
   it("returns hidden=true when moderation threshold is reached", async () => {
+    mockedRepo.doesOrderExist.mockResolvedValue(true);
     mockedRepo.findCommentById.mockResolvedValue({
       id: 502,
       discussionId: 101,

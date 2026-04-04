@@ -120,7 +120,7 @@ const sourceOrderId = computed(() => {
 const cancelPath = computed(() => {
   if (
     sourceOrderId.value &&
-    hasAnyRole(authStore.roles, ["MEMBER", "FINANCE_CLERK", "ADMINISTRATOR"])
+    hasAnyRole(authStore.roles, ["MEMBER", "ADMINISTRATOR"])
   ) {
     return `/member/orders/${sourceOrderId.value}`;
   }

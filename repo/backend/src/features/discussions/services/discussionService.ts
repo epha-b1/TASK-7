@@ -3,6 +3,8 @@ import {
   createComment,
   createCommentMentions,
   createNotification,
+  doesListingExist,
+  doesOrderExist,
   findCommentById,
   findUsersByUsernames,
   getDiscussionById,
@@ -45,12 +47,34 @@ const extractMentionUsernames = (body: string): string[] => {
 const hasElevatedOrderThreadAccess = (roles: RoleName[]): boolean =>
   roles.some((role) => orderThreadElevatedRoles.has(role));
 
+const assertContextExists = async (params: {
+  contextType: DiscussionContextType;
+  contextId: number;
+}): Promise<void> => {
+  if (params.contextType === "LISTING") {
+    const exists = await doesListingExist(params.contextId);
+    if (!exists) {
+      throw new Error("CONTEXT_NOT_FOUND");
+    }
+  } else if (params.contextType === "ORDER") {
+    const exists = await doesOrderExist(params.contextId);
+    if (!exists) {
+      throw new Error("CONTEXT_NOT_FOUND");
+    }
+  }
+};
+
 const assertDiscussionAccess = async (params: {
   contextType: DiscussionContextType;
   contextId: number;
   userId: number;
   roles: RoleName[];
 }): Promise<void> => {
+  await assertContextExists({
+    contextType: params.contextType,
+    contextId: params.contextId,
+  });
+
   if (params.contextType !== "ORDER") {
     return;
   }

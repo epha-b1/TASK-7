@@ -71,7 +71,7 @@ const routes: RouteRecordRaw[] = [
         path: "member/orders/:id",
         name: "order-detail",
         component: OrderDetailPage,
-        meta: { roles: ["MEMBER", "FINANCE_CLERK", "ADMINISTRATOR"] },
+        meta: { roles: ["MEMBER", "ADMINISTRATOR"] },
       },
       {
         path: "threads/:id",
@@ -82,7 +82,6 @@ const routes: RouteRecordRaw[] = [
             "MEMBER",
             "GROUP_LEADER",
             "REVIEWER",
-            "FINANCE_CLERK",
             "ADMINISTRATOR",
           ],
         },

@@ -35,6 +35,9 @@ export const getOrderCommissionBases = async (params: {
      FROM orders o
      JOIN order_items oi ON oi.order_id = o.id
      JOIN listings l ON l.id = oi.listing_id
+     JOIN leaders ld ON ld.user_id = l.leader_user_id
+       AND ld.status = 'APPROVED'
+       AND ld.commission_eligible = 1
      WHERE ${whereClauses.join(" AND ")}
      GROUP BY l.leader_user_id, o.pickup_point_id`,
     queryParams,

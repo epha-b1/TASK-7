@@ -1,7 +1,7 @@
 import { Router, type Response } from "express";
 import { z } from "zod";
 import { requireAuth } from "../../../middleware/rbac";
-import { sendError } from "../../../utils/apiResponse";
+import { sendError, sendSuccess } from "../../../utils/apiResponse";
 import {
   createThreadComment,
   flagComment,
@@ -97,6 +97,16 @@ const handleDiscussionError = (error: unknown, response: Response): boolean => {
     return true;
   }
 
+  if (error instanceof Error && error.message === "CONTEXT_NOT_FOUND") {
+    sendError(
+      response,
+      404,
+      "The referenced listing or order does not exist.",
+      "CONTEXT_NOT_FOUND",
+    );
+    return true;
+  }
+
   return false;
 };
 
@@ -116,7 +126,7 @@ discussionRouter.post(
         roles: request.auth!.roles,
       });
 
-      response.status(201).json(result);
+      sendSuccess(response, result, 201);
     } catch (error) {
       if (handleDiscussionError(error, response)) {
         return;
@@ -151,7 +161,7 @@ discussionRouter.get(
         return;
       }
 
-      response.json(thread);
+      sendSuccess(response, thread);
     } catch (error) {
       if (handleDiscussionError(error, response)) {
         return;
@@ -175,7 +185,7 @@ discussionRouter.get(
         roles: request.auth!.roles,
       });
 
-      response.json(thread);
+      sendSuccess(response, thread);
     } catch (error) {
       if (handleDiscussionError(error, response)) {
         return;
@@ -204,7 +214,7 @@ discussionRouter.post(
         reason: payload.reason,
       });
 
-      response.json(result);
+      sendSuccess(response, result);
     } catch (error) {
       if (handleDiscussionError(error, response)) {
         return;
@@ -230,7 +240,7 @@ discussionRouter.get(
         page,
       });
 
-      response.json({
+      sendSuccess(response, {
         page,
         pageSize: 20,
         total: result.total,
@@ -273,7 +283,7 @@ discussionRouter.patch(
         return;
       }
 
-      response.json({
+      sendSuccess(response, {
         notificationId,
         readState: payload.readState,
       });

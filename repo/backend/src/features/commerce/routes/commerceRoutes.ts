@@ -1,6 +1,7 @@
 import { Router, type Response } from "express";
 import { z } from "zod";
 import { requireAuth, requireRoles } from "../../../middleware/rbac";
+import { sendError, sendSuccess } from "../../../utils/apiResponse";
 import {
   getPickupPointDetail,
   listActiveBuyingCycles,
@@ -34,15 +35,12 @@ export const commerceRouter = Router();
 
 const handleRouteError = (error: unknown, response: Response): boolean => {
   if (error instanceof z.ZodError) {
-    response.status(400).json({
-      error: "Invalid request payload.",
-      details: error.issues,
-    });
+    sendError(response, 400, "Invalid request payload.", "INVALID_REQUEST_PAYLOAD", error.issues);
     return true;
   }
 
   if (error instanceof Error && error.message.startsWith("Favorite target")) {
-    response.status(404).json({ error: error.message });
+    sendError(response, 404, error.message, "FAVORITE_TARGET_NOT_FOUND");
     return true;
   }
 
@@ -57,7 +55,7 @@ commerceRouter.get(
     try {
       const query = activeCycleQuerySchema.parse(request.query);
       const result = await listActiveBuyingCycles(query);
-      response.json({
+      sendSuccess(response, {
         data: result.rows,
         page: query.page,
         pageSize: query.pageSize,
@@ -84,7 +82,7 @@ commerceRouter.get(
         query,
       });
 
-      response.json({
+      sendSuccess(response, {
         data: result.rows,
         page: query.page,
         pageSize: query.pageSize,
@@ -116,11 +114,11 @@ commerceRouter.get(
       });
 
       if (!result) {
-        response.status(404).json({ error: "Pickup point not found." });
+        sendError(response, 404, "Pickup point not found.", "PICKUP_POINT_NOT_FOUND");
         return;
       }
 
-      response.json(result);
+      sendSuccess(response, result);
     } catch (error) {
       if (handleRouteError(error, response)) {
         return;
@@ -143,7 +141,7 @@ commerceRouter.post(
         targetId: payload.targetId,
       });
 
-      response.json({
+      sendSuccess(response, {
         type: payload.type,
         targetId: payload.targetId,
         isFavorite: result.isFavorite,

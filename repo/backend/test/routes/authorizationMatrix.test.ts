@@ -152,7 +152,8 @@ describe("route authorization matrix", () => {
       .set("x-role", "MEMBER");
 
     expect(response.status).toBe(200);
-    expect(response.body.discussionId).toBe(7);
+    expect(response.body.success).toBe(true);
+    expect(response.body.data.discussionId).toBe(7);
   });
 
   it("returns forbidden when thread resolution is blocked by object-level access rules", async () => {
@@ -187,9 +188,12 @@ describe("route authorization matrix", () => {
 
     expect(response.status).toBe(200);
     expect(response.body).toEqual({
-      discussionId: 99,
-      contextType: "LISTING",
-      contextId: 44,
+      success: true,
+      data: {
+        discussionId: 99,
+        contextType: "LISTING",
+        contextId: 44,
+      },
     });
   });
 

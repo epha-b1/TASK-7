@@ -313,6 +313,22 @@ export const getDiscussionById = async (
   };
 };
 
+export const doesListingExist = async (listingId: number): Promise<boolean> => {
+  const [rows] = await dbPool.query<{ id: number }[]>(
+    `SELECT id FROM listings WHERE id = ? LIMIT 1`,
+    [listingId],
+  );
+  return rows.length > 0;
+};
+
+export const doesOrderExist = async (orderId: number): Promise<boolean> => {
+  const [rows] = await dbPool.query<{ id: number }[]>(
+    `SELECT id FROM orders WHERE id = ? LIMIT 1`,
+    [orderId],
+  );
+  return rows.length > 0;
+};
+
 export const isOrderOwnedByUser = async (params: {
   orderId: number;
   userId: number;
