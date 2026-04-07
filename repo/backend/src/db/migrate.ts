@@ -7,8 +7,11 @@ import { logger } from "../utils/logger";
 type Direction = "up" | "down";
 type MigrationRow = RowDataPacket & { name: string };
 
+const stripSqlComments = (sql: string): string =>
+  sql.replace(/--[^\n]*/g, "").replace(/\/\*[\s\S]*?\*\//g, "");
+
 const splitSqlStatements = (sql: string): string[] =>
-  sql
+  stripSqlComments(sql)
     .split(";")
     .map((statement) => statement.trim())
     .filter((statement) => statement.length > 0);
