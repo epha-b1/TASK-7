@@ -1,6 +1,6 @@
 import { Router, type Response } from "express";
 import { z } from "zod";
-import { requireAuth } from "../../../middleware/rbac";
+import { requireAuth, requireRoles } from "../../../middleware/rbac";
 import { sendError, sendSuccess } from "../../../utils/apiResponse";
 import {
   createAppealRecord,
@@ -119,7 +119,11 @@ const handleAppealError = (error: unknown, response: Response): boolean => {
 
 export const appealRouter = Router();
 
-appealRouter.get("/appeals", requireAuth, async (request, response, next) => {
+appealRouter.get(
+  "/appeals",
+  requireAuth,
+  requireRoles("MEMBER", "GROUP_LEADER", "REVIEWER", "FINANCE_CLERK", "ADMINISTRATOR"),
+  async (request, response, next) => {
   try {
     const query = listAppealsQuerySchema.parse(request.query);
     const result = await listAppealQueue({
@@ -144,7 +148,11 @@ appealRouter.get("/appeals", requireAuth, async (request, response, next) => {
   }
 });
 
-appealRouter.post("/appeals", requireAuth, async (request, response, next) => {
+appealRouter.post(
+  "/appeals",
+  requireAuth,
+  requireRoles("MEMBER", "GROUP_LEADER", "REVIEWER", "FINANCE_CLERK", "ADMINISTRATOR"),
+  async (request, response, next) => {
   try {
     const payload = createAppealSchema.parse(request.body);
 
@@ -166,6 +174,7 @@ appealRouter.post("/appeals", requireAuth, async (request, response, next) => {
 appealRouter.post(
   "/appeals/:id/files",
   requireAuth,
+  requireRoles("MEMBER", "GROUP_LEADER", "REVIEWER", "FINANCE_CLERK", "ADMINISTRATOR"),
   async (request, response, next) => {
     try {
       const appealId = z.coerce
@@ -195,6 +204,7 @@ appealRouter.post(
 appealRouter.get(
   "/appeals/:id",
   requireAuth,
+  requireRoles("MEMBER", "GROUP_LEADER", "REVIEWER", "FINANCE_CLERK", "ADMINISTRATOR"),
   async (request, response, next) => {
     try {
       const appealId = z.coerce
@@ -226,6 +236,7 @@ appealRouter.get(
 appealRouter.get(
   "/appeals/:id/timeline",
   requireAuth,
+  requireRoles("MEMBER", "GROUP_LEADER", "REVIEWER", "FINANCE_CLERK", "ADMINISTRATOR"),
   async (request, response, next) => {
     try {
       const appealId = z.coerce
@@ -257,6 +268,7 @@ appealRouter.get(
 appealRouter.get(
   "/appeals/:id/files/:fileId/download",
   requireAuth,
+  requireRoles("MEMBER", "GROUP_LEADER", "REVIEWER", "FINANCE_CLERK", "ADMINISTRATOR"),
   async (request, response, next) => {
     try {
       const appealId = z.coerce
@@ -300,6 +312,7 @@ appealRouter.get(
 appealRouter.patch(
   "/appeals/:id/status",
   requireAuth,
+  requireRoles("REVIEWER", "ADMINISTRATOR"),
   async (request, response, next) => {
     try {
       const appealId = z.coerce

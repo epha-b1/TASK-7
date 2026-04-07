@@ -76,7 +76,7 @@ orderRouter.post('/orders/checkout', requireAuth, requireRoles('MEMBER'), async 
   }
 });
 
-orderRouter.get('/orders/:id', requireAuth, async (request, response, next) => {
+orderRouter.get('/orders/:id', requireAuth, requireRoles('MEMBER', 'GROUP_LEADER', 'REVIEWER', 'FINANCE_CLERK', 'ADMINISTRATOR'), async (request, response, next) => {
   try {
     const orderId = z.coerce.number().int().positive().parse(request.params.id);
     const order = await getOrderById({

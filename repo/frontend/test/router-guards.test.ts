@@ -138,6 +138,28 @@ describe("route auth guards", () => {
     expect(result).toBe("/home/member");
   });
 
+  it("redirects FINANCE_CLERK away from notifications (aligned with BE policy)", async () => {
+    const authStore = createAuthStore({
+      initialized: true,
+      isAuthenticated: true,
+      roles: ["FINANCE_CLERK"],
+    });
+
+    const result = await resolveAuthNavigation({
+      to: {
+        path: "/notifications",
+        fullPath: "/notifications",
+        meta: { roles: ["MEMBER", "GROUP_LEADER", "REVIEWER", "ADMINISTRATOR"] },
+      },
+      authStore,
+    });
+
+    expect(result).toEqual({
+      path: "/forbidden",
+      query: { from: "/notifications" },
+    });
+  });
+
   it("initializes auth store on first guarded navigation", async () => {
     const authStore = createAuthStore({
       initialized: false,

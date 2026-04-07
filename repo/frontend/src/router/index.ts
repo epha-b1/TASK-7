@@ -95,7 +95,6 @@ const routes: RouteRecordRaw[] = [
             "MEMBER",
             "GROUP_LEADER",
             "REVIEWER",
-            "FINANCE_CLERK",
             "ADMINISTRATOR",
           ],
         },

@@ -81,11 +81,7 @@ describe("route authorization matrix", () => {
     expect(mockedAppealService.listAppealQueue).not.toHaveBeenCalled();
   });
 
-  it("rejects appeal status transitions for non-review roles", async () => {
-    mockedAppealService.transitionAppealStatus.mockRejectedValue(
-      new Error("APPEAL_STATUS_FORBIDDEN"),
-    );
-
+  it("rejects appeal status transitions for non-review roles at route level", async () => {
     const app = withAuth();
     app.use(appealRouter);
 
@@ -95,7 +91,44 @@ describe("route authorization matrix", () => {
       .send({ toStatus: "INVESTIGATION", note: "Need escalation" });
 
     expect(response.status).toBe(403);
-    expect(response.body.error.code).toBe("APPEAL_STATUS_FORBIDDEN");
+    expect(response.body.error.code).toBe("ROLE_FORBIDDEN");
+    expect(mockedAppealService.transitionAppealStatus).not.toHaveBeenCalled();
+  });
+
+  it("allows MEMBER to list appeals (service handles visibility)", async () => {
+    mockedAppealService.listAppealQueue.mockResolvedValue({
+      total: 0,
+      rows: [],
+    });
+
+    const app = withAuth();
+    app.use(appealRouter);
+
+    const response = await request(app)
+      .get("/appeals")
+      .set("x-role", "MEMBER");
+
+    expect(response.status).toBe(200);
+    expect(mockedAppealService.listAppealQueue).toHaveBeenCalled();
+  });
+
+  it("allows FINANCE_CLERK to access appeal detail (service handles ownership)", async () => {
+    mockedAppealService.getAppealDetail.mockResolvedValue({
+      id: 10,
+      submittedByUserId: 5,
+      status: "INTAKE",
+    });
+
+    const app = withAuth();
+    app.use(appealRouter);
+
+    const response = await request(app)
+      .get("/appeals/10")
+      .set("x-role", "FINANCE_CLERK")
+      .set("x-user-id", "5");
+
+    expect(response.status).toBe(200);
+    expect(mockedAppealService.getAppealDetail).toHaveBeenCalled();
   });
 
   it("allows reviewer appeal status transitions", async () => {
