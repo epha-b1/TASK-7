@@ -1,0 +1,18 @@
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Reuse the backend package metadata so dependency resolution matches the
+# production backend image exactly. This test container deliberately runs
+# against the *real* backend service over the docker network, but it owns
+# a separate node_modules to avoid clobbering the running container.
+COPY repo/backend/package*.json ./
+RUN npm install
+
+COPY repo/backend/ ./
+
+# The integration suite reaches a real MySQL + a real backend over the
+# docker network. The suite itself calls createApp() directly so the test
+# process owns the Express instance — the "backend" service only exists to
+# ensure the schema is migrated and the seeds are populated before we start.
+CMD ["sh", "-c", "until npm run db:migrate --silent; do echo 'Waiting for database...'; sleep 2; done && npm run test:integration"]

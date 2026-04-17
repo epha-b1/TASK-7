@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "lint": "eslint \"src/**/*.{ts,vue}\"",
     "check:ts-only-source": "node ./scripts/check-ts-only-source.mjs",
-    "test": "npm run check:ts-only-source && vitest run --passWithNoTests"
+    "test": "npm run check:ts-only-source && vitest run --passWithNoTests",
+    "test:coverage": "npm run check:ts-only-source && vitest run --coverage --passWithNoTests"
   },
   "dependencies": {
     "pinia": "^3.0.3",
@@ -17,12 +18,13 @@
     "vue-router": "^4.6.3"
   },
   "devDependencies": {
-    "@vue/compiler-sfc": "^3.5.22",
-    "@vue/test-utils": "^2.4.6",
-    "@typescript-eslint/parser": "^8.46.1",
     "@eslint/js": "^9.38.0",
     "@types/node": "^24.9.1",
+    "@typescript-eslint/parser": "^8.46.1",
     "@vitejs/plugin-vue": "^6.0.1",
+    "@vitest/coverage-v8": "^3.2.4",
+    "@vue/compiler-sfc": "^3.5.22",
+    "@vue/test-utils": "^2.4.6",
     "eslint": "^9.38.0",
     "eslint-plugin-vue": "^10.5.1",
     "jsdom": "^26.1.0",

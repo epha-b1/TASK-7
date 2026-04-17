@@ -1,0 +1,10 @@
+FROM mcr.microsoft.com/playwright:v1.48.0-jammy
+
+WORKDIR /workspace
+
+COPY repo/e2e/package*.json ./
+RUN npm install
+
+COPY repo/e2e/ ./
+
+CMD ["npx", "playwright", "test", "--reporter=list"]

@@ -12,3 +12,9 @@ dist/
 .claude/
 .tmp/
 .venv/
+
+# Test artifacts
+coverage/
+playwright-report/
+playwright-results.json
+test-results/

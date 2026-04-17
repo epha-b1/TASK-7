@@ -34,7 +34,7 @@ services:
     environment:
       PORT: 4000
       FRONTEND_ORIGIN: "http://localhost:${FRONTEND_HOST_PORT:-8081}"
-      FRONTEND_ORIGINS: "http://localhost:${FRONTEND_HOST_PORT:-8081},http://localhost:5173"
+      FRONTEND_ORIGINS: "http://localhost:${FRONTEND_HOST_PORT:-8081},http://localhost:5173,http://frontend:80,http://backend:4000"
       DB_HOST: db
       DB_PORT: 3306
       DB_USER: appuser
@@ -87,6 +87,49 @@ services:
       frontend:
         condition: service_started
 
+  backend-integration:
+    build:
+      context: ..
+      dockerfile: repo/Dockerfile.integration
+    environment:
+      NODE_ENV: test
+      DB_HOST: db
+      DB_PORT: 3306
+      DB_USER: appuser
+      DB_PASSWORD: apppassword
+      DB_NAME: neighborhoodpickup
+      SESSION_SECRET: docker-local-session-secret
+      SESSION_TTL_HOURS: 12
+      LOCKOUT_MAX_ATTEMPTS: 5
+      LOCKOUT_MINUTES: 15
+      FRONTEND_ORIGINS: "http://localhost:${FRONTEND_HOST_PORT:-8081},http://frontend:80,http://backend:4000"
+      BEHAVIOR_RETENTION_RUN_INTERVAL_MINUTES: "0"
+      BEHAVIOR_BUFFER_FLUSH_INTERVAL_MS: "0"
+    profiles: ["integration"]
+    depends_on:
+      db:
+        condition: service_healthy
+      backend:
+        condition: service_healthy
+
+  e2e:
+    build:
+      context: ..
+      dockerfile: repo/Dockerfile.e2e
+    environment:
+      E2E_BASE_URL: "http://frontend:80"
+      E2E_API_URL: "http://backend:4000"
+      CI: "1"
+    profiles: ["e2e"]
+    depends_on:
+      backend:
+        condition: service_healthy
+      frontend:
+        condition: service_started
+    volumes:
+      - e2e_reports:/workspace/playwright-report
+
 volumes:
   mysql_data:
   backend_storage:
+  e2e_reports:

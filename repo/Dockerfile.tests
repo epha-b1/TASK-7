@@ -11,4 +11,6 @@ COPY repo/backend ./backend
 COPY repo/frontend ./frontend
 COPY docs ./docs
 
-CMD ["sh", "-c", "cd backend && npm run test && cd ../frontend && npm run test"]
+# Runs backend + frontend tests with coverage. Text summary is emitted to
+# stdout; lcov/html are persisted under each package's ./coverage folder.
+CMD ["sh", "-c", "cd backend && npm run test:coverage && cd ../frontend && npm run test:coverage"]
