@@ -50,7 +50,13 @@ export const getPickupPointDetail = async (params: {
       stateRegion: point.state_region,
       postalCode: point.postal_code
     },
-    businessHours: JSON.parse(point.business_hours_json),
+    // MySQL JSON columns already hand us a parsed object via mysql2, but
+    // some driver versions / connection options surface the raw string.
+    // Accept both shapes.
+    businessHours:
+      typeof point.business_hours_json === "string"
+        ? JSON.parse(point.business_hours_json)
+        : point.business_hours_json,
     dailyCapacity: Number(point.daily_capacity),
     remainingCapacityToday,
     windows,

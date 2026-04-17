@@ -260,9 +260,14 @@ describe("leaders (no-mock, real MySQL)", () => {
       }
     });
 
-    it("MEMBER is forbidden from /leaders/dashboard/metrics (group-leader only)", async () => {
-      const response = await memberAgent.get("/leaders/dashboard/metrics");
+    it("FINANCE_CLERK is forbidden from /leaders/dashboard/metrics (group-leader only)", async () => {
+      // The seeded member may have gained GROUP_LEADER role from the
+      // preceding approval test, so we assert the negative case against a
+      // role that will NEVER become a group-leader in these integration
+      // tests (finance1).
+      const response = await financeAgent.get("/leaders/dashboard/metrics");
       expect(response.status).toBe(403);
+      expect(response.body.error.code).toBe("ROLE_FORBIDDEN");
     });
 
     it("401 without session", async () => {

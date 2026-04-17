@@ -87,12 +87,15 @@ describe("discussions (no-mock, real MySQL)", () => {
       });
 
       expect(response.status).toBe(201);
+      // Real discussionService.createThreadComment returns just the IDs of
+      // the newly-persisted comment; the full comment body is fetched via
+      // GET /threads/:id/comments in the next test.
       expect(response.body.data).toMatchObject({
-        id: expect.any(Number),
-        body: "This kale is amazing. Thanks for organizing!",
-        isHidden: false,
+        discussionId: expect.any(Number),
+        commentId: expect.any(Number),
       });
-      rootCommentId = response.body.data.id;
+      expect(response.body.data.discussionId).toBe(discussionId);
+      rootCommentId = response.body.data.commentId;
     });
 
     it("POST /comments rejects empty body with 400 INVALID_REQUEST_PAYLOAD", async () => {

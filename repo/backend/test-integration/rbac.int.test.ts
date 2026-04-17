@@ -36,19 +36,22 @@ describe("rbac role-home endpoints (no-mock, real MySQL session cookies)", () =>
       path: "/rbac/group-leader",
       credsKey: "leader" as const,
       message: "Group leader area",
-      otherKey: "member" as const,
+      // NOT `member`: the leader-approval integration test can grant
+      // member1 the GROUP_LEADER role during the same run, which would
+      // make the "forbidden" assertion flaky. `finance` is isolated.
+      otherKey: "finance" as const,
     },
     {
       path: "/rbac/reviewer",
       credsKey: "reviewer" as const,
       message: "Reviewer area",
-      otherKey: "member" as const,
+      otherKey: "finance" as const,
     },
     {
       path: "/rbac/finance-clerk",
       credsKey: "finance" as const,
       message: "Finance clerk area",
-      otherKey: "member" as const,
+      otherKey: "admin" as const,
     },
     {
       path: "/rbac/administrator",
