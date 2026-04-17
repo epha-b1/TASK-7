@@ -93,6 +93,7 @@ describe("LoginPage", () => {
 
     expect(wrapper.text()).toContain("Invalid username or password");
     expect(pushMock).not.toHaveBeenCalled();
+    expect(replaceMock).not.toHaveBeenCalled();
   });
 
   it("reflects the session-expired query param as a visible notice", async () => {
