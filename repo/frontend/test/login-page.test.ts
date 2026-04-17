@@ -70,7 +70,9 @@ describe("LoginPage", () => {
       username: "member1",
       password: "Member#Pass123",
     });
-    expect(pushMock).toHaveBeenCalledWith("/home/member");
+    // LoginPage.vue uses router.replace() (not push) so the address is
+    // rewritten rather than pushed onto history.
+    expect(replaceMock).toHaveBeenCalledWith("/home/member");
     expect(wrapper.text()).not.toContain("Invalid");
   });
 
