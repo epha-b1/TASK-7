@@ -186,4 +186,85 @@ describe("behavior + audit (no-mock, real MySQL)", () => {
       expect(response.status).toBe(403);
     });
   });
+
+  describe("GET /audit/logs/verify-chain (ADMINISTRATOR only)", () => {
+    it("returns {total, valid, failures[]} with a genuinely valid chain against seeded audit rows", async () => {
+      const response = await adminAgent.get("/audit/logs/verify-chain");
+
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
+      expect(response.body.data).toMatchObject({
+        total: expect.any(Number),
+        valid: true,
+        failures: [],
+      });
+      // After the above happy-path operations (retention-run, ingest, etc.)
+      // the hash chain must still verify — total >= 0 and no failures.
+      expect(response.body.data.total).toBeGreaterThanOrEqual(0);
+    });
+
+    it("REVIEWER is forbidden from /audit/logs/verify-chain", async () => {
+      const response = await reviewerAgent.get("/audit/logs/verify-chain");
+      expect(response.status).toBe(403);
+      expect(response.body.error.code).toBe("ROLE_FORBIDDEN");
+    });
+
+    it("MEMBER is forbidden from /audit/logs/verify-chain", async () => {
+      const response = await memberAgent.get("/audit/logs/verify-chain");
+      expect(response.status).toBe(403);
+    });
+
+    it("unauthenticated call to /audit/logs/verify-chain returns 401", async () => {
+      const { default: supertest } = await import("supertest");
+      const response = await supertest(app).get("/audit/logs/verify-chain");
+      expect(response.status).toBe(401);
+    });
+  });
+
+  describe("GET /behavior/summary (FINANCE_CLERK + ADMINISTRATOR)", () => {
+    it("returns an array of {eventType, eventCount} rows for the default window", async () => {
+      const response = await adminAgent.get("/behavior/summary");
+
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
+      expect(Array.isArray(response.body.data)).toBe(true);
+      for (const row of response.body.data) {
+        expect(row).toMatchObject({
+          eventType: expect.stringMatching(
+            /^(IMPRESSION|CLICK|FAVORITE|VOTE|WATCH_COMPLETION)$/,
+          ),
+          eventCount: expect.any(Number),
+        });
+        expect(row.eventCount).toBeGreaterThanOrEqual(0);
+      }
+    });
+
+    it("accepts a from/to date window and still returns the same row contract", async () => {
+      const response = await adminAgent.get(
+        "/behavior/summary?from=2026-01-01&to=2027-12-31",
+      );
+      expect(response.status).toBe(200);
+      expect(Array.isArray(response.body.data)).toBe(true);
+    });
+
+    it("rejects a malformed from date with 400 INVALID_REQUEST_PAYLOAD", async () => {
+      const response = await adminAgent.get(
+        "/behavior/summary?from=not-a-date",
+      );
+      expect(response.status).toBe(400);
+      expect(response.body.error.code).toBe("INVALID_REQUEST_PAYLOAD");
+    });
+
+    it("MEMBER is forbidden from /behavior/summary", async () => {
+      const response = await memberAgent.get("/behavior/summary");
+      expect(response.status).toBe(403);
+    });
+
+    it("FINANCE_CLERK can fetch /behavior/summary (dual-role endpoint)", async () => {
+      const financeAgent = await loginAgent(app, seededCreds.finance);
+      const response = await financeAgent.get("/behavior/summary");
+      expect(response.status).toBe(200);
+      expect(Array.isArray(response.body.data)).toBe(true);
+    });
+  });
 });

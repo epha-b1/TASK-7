@@ -512,4 +512,224 @@ describe("route authorization matrix", () => {
     expect(response.body.error.code).toBe("ROLE_FORBIDDEN");
     expect(mockedDiscussionService.listUserNotifications).not.toHaveBeenCalled();
   });
+
+  // --- Discussion comment creation (POST /comments) success path ---
+
+  it("POST /comments creates a comment for an authenticated MEMBER and returns 201", async () => {
+    mockedDiscussionService.createThreadComment.mockResolvedValue({
+      id: 101,
+      discussionId: 5,
+      parentCommentId: null,
+      body: "Looks great, thanks!",
+      authorUserId: 22,
+      authorUsername: "member22",
+      createdAt: "2026-04-17T08:00:00.000Z",
+      isHidden: false,
+    } as any);
+
+    const app = withAuth();
+    app.use(discussionRouter);
+
+    const response = await request(app)
+      .post("/comments")
+      .set("x-role", "MEMBER")
+      .set("x-user-id", "22")
+      .send({
+        contextType: "LISTING",
+        contextId: 7,
+        body: "Looks great, thanks!",
+      });
+
+    expect(response.status).toBe(201);
+    expect(response.body.success).toBe(true);
+    expect(response.body.data.id).toBe(101);
+    expect(mockedDiscussionService.createThreadComment).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 22,
+        roles: ["MEMBER"],
+        input: expect.objectContaining({
+          contextType: "LISTING",
+          contextId: 7,
+          body: "Looks great, thanks!",
+        }),
+      }),
+    );
+  });
+
+  it("POST /comments rejects an empty body at the zod boundary (400)", async () => {
+    const app = withAuth();
+    app.use(discussionRouter);
+
+    const response = await request(app)
+      .post("/comments")
+      .set("x-role", "MEMBER")
+      .set("x-user-id", "22")
+      .send({ contextType: "LISTING", contextId: 7, body: "" });
+
+    expect(response.status).toBe(400);
+    expect(response.body.error.code).toBe("INVALID_REQUEST_PAYLOAD");
+    expect(mockedDiscussionService.createThreadComment).not.toHaveBeenCalled();
+  });
+
+  // --- Flag comment (POST /comments/:id/flag) success + self-flag guard ---
+
+  it("POST /comments/:id/flag records a flag and returns the updated shape for the flagger", async () => {
+    mockedDiscussionService.flagComment.mockResolvedValue({
+      commentId: 55,
+      totalFlags: 2,
+      isHidden: false,
+    } as any);
+
+    const app = withAuth();
+    app.use(discussionRouter);
+
+    const response = await request(app)
+      .post("/comments/55/flag")
+      .set("x-role", "MEMBER")
+      .set("x-user-id", "22")
+      .send({ reason: "Off-topic and misleading." });
+
+    expect(response.status).toBe(200);
+    expect(response.body.data).toEqual({
+      commentId: 55,
+      totalFlags: 2,
+      isHidden: false,
+    });
+    expect(mockedDiscussionService.flagComment).toHaveBeenCalledWith({
+      commentId: 55,
+      flaggedByUserId: 22,
+      roles: ["MEMBER"],
+      reason: "Off-topic and misleading.",
+    });
+  });
+
+  it("POST /comments/:id/flag maps CANNOT_FLAG_OWN_COMMENT to 403 with that error code", async () => {
+    mockedDiscussionService.flagComment.mockRejectedValue(
+      new Error("CANNOT_FLAG_OWN_COMMENT"),
+    );
+
+    const app = withAuth();
+    app.use(discussionRouter);
+
+    const response = await request(app)
+      .post("/comments/55/flag")
+      .set("x-role", "MEMBER")
+      .set("x-user-id", "22")
+      .send({ reason: "Trying to self-flag." });
+
+    expect(response.status).toBe(403);
+    expect(response.body.error.code).toBe("CANNOT_FLAG_OWN_COMMENT");
+  });
+
+  // --- Notifications (GET /notifications, PATCH /notifications/:id/read-state) ---
+
+  it("GET /notifications returns a paginated envelope for an authenticated MEMBER", async () => {
+    mockedDiscussionService.listUserNotifications.mockResolvedValue({
+      total: 2,
+      notifications: [
+        {
+          id: 1,
+          type: "MENTION",
+          title: "You were mentioned",
+          body: "in a thread on Organic Kale Bundle",
+          readState: "UNREAD",
+          createdAt: "2026-04-17T09:00:00.000Z",
+        },
+        {
+          id: 2,
+          type: "REPLY",
+          title: "New reply",
+          body: "Leader replied to your comment",
+          readState: "READ",
+          createdAt: "2026-04-16T10:00:00.000Z",
+        },
+      ],
+    } as any);
+
+    const app = withAuth();
+    app.use(discussionRouter);
+
+    const response = await request(app)
+      .get("/notifications?page=1")
+      .set("x-role", "MEMBER")
+      .set("x-user-id", "22");
+
+    expect(response.status).toBe(200);
+    expect(response.body.success).toBe(true);
+    expect(response.body.data).toMatchObject({
+      page: 1,
+      pageSize: 20,
+      total: 2,
+      data: expect.arrayContaining([
+        expect.objectContaining({ id: 1, readState: "UNREAD" }),
+      ]),
+    });
+    expect(mockedDiscussionService.listUserNotifications).toHaveBeenCalledWith({
+      userId: 22,
+      page: 1,
+    });
+  });
+
+  it("PATCH /notifications/:id/read-state updates the notification and echoes the new state", async () => {
+    mockedDiscussionService.patchNotificationReadState.mockResolvedValue(
+      true as any,
+    );
+
+    const app = withAuth();
+    app.use(discussionRouter);
+
+    const response = await request(app)
+      .patch("/notifications/7/read-state")
+      .set("x-role", "MEMBER")
+      .set("x-user-id", "22")
+      .send({ readState: "READ" });
+
+    expect(response.status).toBe(200);
+    expect(response.body.data).toEqual({
+      notificationId: 7,
+      readState: "READ",
+    });
+    expect(
+      mockedDiscussionService.patchNotificationReadState,
+    ).toHaveBeenCalledWith({
+      userId: 22,
+      notificationId: 7,
+      readState: "READ",
+    });
+  });
+
+  it("PATCH /notifications/:id/read-state returns 404 when the service reports no update (wrong owner or missing)", async () => {
+    mockedDiscussionService.patchNotificationReadState.mockResolvedValue(
+      false as any,
+    );
+
+    const app = withAuth();
+    app.use(discussionRouter);
+
+    const response = await request(app)
+      .patch("/notifications/999/read-state")
+      .set("x-role", "MEMBER")
+      .set("x-user-id", "22")
+      .send({ readState: "UNREAD" });
+
+    expect(response.status).toBe(404);
+    expect(response.body.error.code).toBe("NOTIFICATION_NOT_FOUND");
+  });
+
+  it("PATCH /notifications/:id/read-state rejects an invalid readState enum (400)", async () => {
+    const app = withAuth();
+    app.use(discussionRouter);
+
+    const response = await request(app)
+      .patch("/notifications/7/read-state")
+      .set("x-role", "MEMBER")
+      .set("x-user-id", "22")
+      .send({ readState: "MAYBE" });
+
+    expect(response.status).toBe(400);
+    expect(response.body.error.code).toBe("INVALID_REQUEST_PAYLOAD");
+    expect(
+      mockedDiscussionService.patchNotificationReadState,
+    ).not.toHaveBeenCalled();
+  });
 });

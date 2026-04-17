@@ -220,4 +220,52 @@ describe("finance (no-mock, real MySQL)", () => {
       }
     });
   });
+
+  describe("GET /finance/ledger (FINANCE_CLERK + ADMINISTRATOR only)", () => {
+    it("FINANCE_CLERK receives the real ledger rows with the documented field shape", async () => {
+      const response = await financeAgent.get("/finance/ledger");
+
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
+      expect(Array.isArray(response.body.data)).toBe(true);
+      // Seed posts one CONFIRMED order + settlement so rows should be > 0.
+      expect(response.body.data.length).toBeGreaterThan(0);
+      for (const row of response.body.data) {
+        expect(row).toMatchObject({
+          id: expect.any(Number),
+          orderId: expect.any(Number),
+          accountCode: expect.any(String),
+          accountName: expect.any(String),
+          direction: expect.stringMatching(/^(DEBIT|CREDIT)$/),
+          amount: expect.any(Number),
+        });
+      }
+      // A well-formed double-entry ledger balances: sum(DEBIT) = sum(CREDIT).
+      const debits = response.body.data
+        .filter((r: { direction: string }) => r.direction === "DEBIT")
+        .reduce((acc: number, r: { amount: number }) => acc + r.amount, 0);
+      const credits = response.body.data
+        .filter((r: { direction: string }) => r.direction === "CREDIT")
+        .reduce((acc: number, r: { amount: number }) => acc + r.amount, 0);
+      expect(Math.abs(debits - credits)).toBeLessThan(0.01);
+    });
+
+    it("ADMINISTRATOR can also read /finance/ledger", async () => {
+      const response = await adminAgent.get("/finance/ledger");
+      expect(response.status).toBe(200);
+      expect(Array.isArray(response.body.data)).toBe(true);
+    });
+
+    it("MEMBER is forbidden from /finance/ledger with ROLE_FORBIDDEN", async () => {
+      const response = await memberAgent.get("/finance/ledger");
+      expect(response.status).toBe(403);
+      expect(response.body.error.code).toBe("ROLE_FORBIDDEN");
+    });
+
+    it("unauthenticated request to /finance/ledger returns 401", async () => {
+      const { default: supertest } = await import("supertest");
+      const response = await supertest(app).get("/finance/ledger");
+      expect(response.status).toBe(401);
+    });
+  });
 });

@@ -201,4 +201,84 @@ describe("commerce + orders (no-mock, real MySQL)", () => {
     expect(response.status).toBe(404);
     expect(response.body.error.code).toBe("ORDER_NOT_FOUND");
   });
+
+  describe("POST /admin/pickup-windows (ADMINISTRATOR only)", () => {
+    it("ADMINISTRATOR can create a valid 1-hour pickup window and it persists", async () => {
+      const adminAgent = await loginAgent(app, seededCreds.admin);
+
+      // Use a future date so the validator cannot reject on "in the past".
+      const futureDate = new Date(
+        Date.now() + 14 * 24 * 60 * 60 * 1000,
+      )
+        .toISOString()
+        .slice(0, 10);
+
+      const response = await adminAgent.post("/admin/pickup-windows").send({
+        pickupPointId,
+        windowDate: futureDate,
+        startTime: "15:00:00",
+        endTime: "16:00:00",
+        capacityTotal: 40,
+      });
+
+      expect(response.status).toBe(201);
+      expect(response.body.success).toBe(true);
+      expect(typeof response.body.data.id).toBe("number");
+
+      // The created window is now visible on the pickup point detail.
+      const detail = await memberAgent.get(`/pickup-points/${pickupPointId}`);
+      const newWindow = (
+        detail.body.data.windows as Array<{
+          id: number;
+          remainingCapacity: number;
+        }>
+      ).find((w) => w.id === response.body.data.id);
+      expect(newWindow).toBeDefined();
+      expect(newWindow!.remainingCapacity).toBe(40);
+    });
+
+    it("rejects a non-1-hour window (400 INVALID_PICKUP_WINDOW_DURATION)", async () => {
+      const adminAgent = await loginAgent(app, seededCreds.admin);
+      const futureDate = new Date(Date.now() + 15 * 24 * 60 * 60 * 1000)
+        .toISOString()
+        .slice(0, 10);
+
+      const response = await adminAgent.post("/admin/pickup-windows").send({
+        pickupPointId,
+        windowDate: futureDate,
+        startTime: "09:00:00",
+        endTime: "11:00:00",
+        capacityTotal: 40,
+      });
+
+      expect(response.status).toBe(400);
+      expect(response.body.error.code).toBe("INVALID_PICKUP_WINDOW_DURATION");
+    });
+
+    it("MEMBER is forbidden from creating a pickup window (ROLE_FORBIDDEN)", async () => {
+      const response = await memberAgent.post("/admin/pickup-windows").send({
+        pickupPointId,
+        windowDate: "2099-05-01",
+        startTime: "09:00:00",
+        endTime: "10:00:00",
+        capacityTotal: 10,
+      });
+      expect(response.status).toBe(403);
+      expect(response.body.error.code).toBe("ROLE_FORBIDDEN");
+    });
+
+    it("rejects malformed payload at the zod boundary (400 INVALID_REQUEST_PAYLOAD)", async () => {
+      const adminAgent = await loginAgent(app, seededCreds.admin);
+
+      const response = await adminAgent.post("/admin/pickup-windows").send({
+        pickupPointId,
+        windowDate: "not-a-date",
+        startTime: "abc",
+        endTime: "xyz",
+      });
+
+      expect(response.status).toBe(400);
+      expect(response.body.error.code).toBe("INVALID_REQUEST_PAYLOAD");
+    });
+  });
 });

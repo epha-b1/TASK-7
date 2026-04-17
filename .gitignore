@@ -6,5 +6,5 @@ node_modules
 
 # IDE and tool directories
 .claude/
-.tmp/
+# .tmp/
 .venv/

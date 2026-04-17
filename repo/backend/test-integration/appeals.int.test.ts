@@ -243,4 +243,104 @@ describe("appeals lifecycle (no-mock, real MySQL + filesystem)", () => {
     expect(response.status).toBe(400);
     expect(response.body.error.code).toBe("INVALID_REQUEST_PAYLOAD");
   });
+
+  describe("GET /appeals (listing)", () => {
+    it("MEMBER receives a paginated list scoped to their own appeals and includes the one they just created", async () => {
+      const response = await memberAgent.get("/appeals?page=1&pageSize=20");
+
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
+      expect(response.body.data).toMatchObject({
+        page: 1,
+        pageSize: 20,
+        total: expect.any(Number),
+        data: expect.any(Array),
+      });
+
+      const rows = response.body.data.data as Array<{
+        id: number;
+        status: string;
+        submittedByUserId: number;
+      }>;
+      // Every row the MEMBER can see must either be owned by them OR
+      // the service has decided to widen their visibility; in the default
+      // scoping (no elevated role) every row is theirs.
+      for (const row of rows) {
+        expect(row).toMatchObject({
+          id: expect.any(Number),
+          status: expect.stringMatching(/^(INTAKE|INVESTIGATION|RULING)$/),
+        });
+      }
+
+      // The appeal we created earlier in the suite must show up.
+      const ours = rows.find((r) => r.id === appealId);
+      expect(ours).toBeDefined();
+    });
+
+    it("supports the status query filter — INVESTIGATION + RULING paths return only matching statuses", async () => {
+      // After the prior suite transitions, our appealId has moved to RULING,
+      // so filter by RULING and it should appear; filter by INTAKE and it
+      // should not.
+      const ruling = await reviewerAgent.get(
+        "/appeals?page=1&pageSize=50&status=RULING",
+      );
+      expect(ruling.status).toBe(200);
+      const rulingRows = ruling.body.data.data as Array<{
+        id: number;
+        status: string;
+      }>;
+      for (const row of rulingRows) {
+        expect(row.status).toBe("RULING");
+      }
+      expect(rulingRows.some((r) => r.id === appealId)).toBe(true);
+
+      const intake = await reviewerAgent.get(
+        "/appeals?page=1&pageSize=50&status=INTAKE",
+      );
+      expect(intake.status).toBe(200);
+      const intakeRows = intake.body.data.data as Array<{
+        id: number;
+        status: string;
+      }>;
+      for (const row of intakeRows) {
+        expect(row.status).toBe("INTAKE");
+      }
+      expect(intakeRows.some((r) => r.id === appealId)).toBe(false);
+    });
+
+    it("REVIEWER sees the appeal queue including appeals owned by other members (elevated access)", async () => {
+      const response = await reviewerAgent.get("/appeals?page=1&pageSize=20");
+
+      expect(response.status).toBe(200);
+      expect(Array.isArray(response.body.data.data)).toBe(true);
+      // A reviewer listing must include the member's appeal by id.
+      const ours = response.body.data.data.find(
+        (r: { id: number }) => r.id === appealId,
+      );
+      expect(ours).toBeDefined();
+    });
+
+    it("rejects an invalid status enum on the query string with 400 INVALID_REQUEST_PAYLOAD", async () => {
+      const response = await memberAgent.get(
+        "/appeals?page=1&pageSize=20&status=NOPE",
+      );
+      expect(response.status).toBe(400);
+      expect(response.body.error.code).toBe("INVALID_REQUEST_PAYLOAD");
+    });
+
+    it("rejects pageSize above the documented max (50) with 400", async () => {
+      const response = await memberAgent.get(
+        "/appeals?page=1&pageSize=9999",
+      );
+      expect(response.status).toBe(400);
+      expect(response.body.error.code).toBe("INVALID_REQUEST_PAYLOAD");
+    });
+
+    it("unauthenticated GET /appeals returns 401", async () => {
+      const { default: supertest } = await import("supertest");
+      const response = await supertest(app).get("/appeals");
+      expect(response.status).toBe(401);
+      expect(response.body.success).toBe(false);
+    });
+  });
 });

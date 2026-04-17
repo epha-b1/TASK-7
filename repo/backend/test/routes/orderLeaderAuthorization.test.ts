@@ -271,4 +271,157 @@ describe("order and leader route authorization", () => {
       dateTo: undefined,
     });
   });
+
+  // --- GET /leaders/applications/me ---
+
+  it("GET /leaders/applications/me returns the current user's application payload", async () => {
+    mockedLeaderService.getMyLeaderApplication.mockResolvedValue({
+      id: 12,
+      userId: 22,
+      fullName: "Member Candidate",
+      phone: "555-0101",
+      experienceSummary:
+        "I have organized community pickup operations for over two years.",
+      pickupPointId: null,
+      requestedCommissionEligible: true,
+      status: "PENDING",
+      submittedAt: "2026-04-02T10:00:00.000Z",
+      reviewedAt: null,
+      decisionReason: null,
+      decisionByAdminId: null,
+      decisionByAdminUsername: null,
+      decisionCommissionEligible: null,
+      decisionAt: null,
+    });
+
+    const app = buildApp();
+
+    const response = await request(app)
+      .get("/leaders/applications/me")
+      .set("x-role", "MEMBER")
+      .set("x-user-id", "22");
+
+    expect(response.status).toBe(200);
+    expect(response.body.success).toBe(true);
+    expect(response.body.data).toMatchObject({
+      id: 12,
+      userId: 22,
+      status: "PENDING",
+    });
+    expect(mockedLeaderService.getMyLeaderApplication).toHaveBeenCalledWith(22);
+  });
+
+  it("GET /leaders/applications/me returns a null data payload when the user has no application yet", async () => {
+    mockedLeaderService.getMyLeaderApplication.mockResolvedValue(null);
+
+    const app = buildApp();
+
+    const response = await request(app)
+      .get("/leaders/applications/me")
+      .set("x-role", "MEMBER")
+      .set("x-user-id", "99");
+
+    expect(response.status).toBe(200);
+    expect(response.body.success).toBe(true);
+    expect(response.body.data).toBeNull();
+    expect(mockedLeaderService.getMyLeaderApplication).toHaveBeenCalledWith(99);
+  });
+
+  it("GET /leaders/applications/me requires auth (401 without a session)", async () => {
+    const app = buildApp();
+
+    const response = await request(app).get("/leaders/applications/me");
+
+    expect(response.status).toBe(401);
+    expect(mockedLeaderService.getMyLeaderApplication).not.toHaveBeenCalled();
+  });
+
+  it("GET /leaders/applications/me forbids FINANCE_CLERK (member/group-leader only)", async () => {
+    const app = buildApp();
+
+    const response = await request(app)
+      .get("/leaders/applications/me")
+      .set("x-role", "FINANCE_CLERK")
+      .set("x-user-id", "5");
+
+    expect(response.status).toBe(403);
+    expect(response.body.error.code).toBe("ROLE_FORBIDDEN");
+    expect(mockedLeaderService.getMyLeaderApplication).not.toHaveBeenCalled();
+  });
+
+  // --- GET /admin/leaders/applications/pending SUCCESS path (admin-only) ---
+
+  it("GET /admin/leaders/applications/pending returns the pending list for an ADMINISTRATOR", async () => {
+    mockedLeaderService.getPendingLeaderApplications.mockResolvedValue([
+      {
+        id: 12,
+        userId: 22,
+        fullName: "Member Candidate",
+        phone: "555-0101",
+        experienceSummary:
+          "I have organized community pickup operations for over two years.",
+        pickupPointId: null,
+        requestedCommissionEligible: true,
+        status: "PENDING",
+        submittedAt: "2026-04-02T10:00:00.000Z",
+        reviewedAt: null,
+        decisionReason: null,
+        decisionByAdminId: null,
+        decisionByAdminUsername: null,
+        decisionCommissionEligible: null,
+        decisionAt: null,
+      },
+      {
+        id: 13,
+        userId: 23,
+        fullName: "Another Candidate",
+        phone: "555-0202",
+        experienceSummary:
+          "Three years organizing neighborhood pickup logistics and communications.",
+        pickupPointId: null,
+        requestedCommissionEligible: false,
+        status: "PENDING",
+        submittedAt: "2026-04-03T11:00:00.000Z",
+        reviewedAt: null,
+        decisionReason: null,
+        decisionByAdminId: null,
+        decisionByAdminUsername: null,
+        decisionCommissionEligible: null,
+        decisionAt: null,
+      },
+    ] as any);
+
+    const app = buildApp();
+
+    const response = await request(app)
+      .get("/admin/leaders/applications/pending")
+      .set("x-role", "ADMINISTRATOR")
+      .set("x-user-id", "1");
+
+    expect(response.status).toBe(200);
+    expect(response.body.success).toBe(true);
+    expect(Array.isArray(response.body.data)).toBe(true);
+    expect(response.body.data).toHaveLength(2);
+    expect(response.body.data[0]).toMatchObject({
+      id: 12,
+      status: "PENDING",
+      requestedCommissionEligible: true,
+    });
+    expect(
+      mockedLeaderService.getPendingLeaderApplications,
+    ).toHaveBeenCalledTimes(1);
+  });
+
+  it("GET /admin/leaders/applications/pending returns 401 without a session", async () => {
+    const app = buildApp();
+
+    const response = await request(app).get(
+      "/admin/leaders/applications/pending",
+    );
+
+    expect(response.status).toBe(401);
+    expect(
+      mockedLeaderService.getPendingLeaderApplications,
+    ).not.toHaveBeenCalled();
+  });
 });
