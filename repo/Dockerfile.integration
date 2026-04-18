@@ -1,22 +1,27 @@
-FROM node:20-alpine
-
-# Force IPv4-first DNS so npm install doesn't stall on IPv6 blackholes.
-ENV NODE_OPTIONS="--dns-result-order=ipv4first"
-
+FROM node:20-bookworm-slim
+# Debian-slim: avoids flaky Alpine/musl npm issues.
 WORKDIR /app
-
-# Network-resilient npm config: retry transient DNS / socket failures.
-RUN npm config set fetch-retries 8 \
- && npm config set fetch-retry-factor 2 \
- && npm config set fetch-retry-mintimeout 10000 \
- && npm config set fetch-retry-maxtimeout 180000
 
 # Reuse the backend package metadata so dependency resolution matches the
 # production backend image exactly. This test container deliberately runs
 # against the *real* backend service over the docker network, but it owns
 # a separate node_modules to avoid clobbering the running container.
 COPY repo/backend/package*.json ./
-RUN npm install
+
+RUN set -eu; \
+    npm config set fetch-retries 5; \
+    npm config set fetch-retry-mintimeout 20000; \
+    npm config set fetch-retry-maxtimeout 120000; \
+    for i in 1 2 3; do \
+      rm -rf node_modules; \
+      npm install --no-audit --no-fund --loglevel=error || true; \
+      if [ -x node_modules/.bin/vitest ] && [ -x node_modules/.bin/ts-node ]; then \
+        echo "npm install OK on attempt $i"; break; \
+      fi; \
+      echo "attempt $i missing devDeps; retrying"; sleep 5; \
+    done; \
+    test -x node_modules/.bin/vitest; \
+    test -x node_modules/.bin/ts-node
 
 COPY repo/backend/ ./
 

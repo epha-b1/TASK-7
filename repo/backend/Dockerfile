@@ -1,21 +1,27 @@
-FROM node:20-alpine
-
-# Force IPv4-first DNS resolution so `npm install` doesn't stall on the
-# 20-second IPv6 timeout in environments where the v6 route is black-holed
-# (e.g. sandboxes / some CI networks).
-ENV NODE_OPTIONS="--dns-result-order=ipv4first"
-
+FROM node:20-bookworm-slim
+# Debian-slim base: avoids the Alpine-on-some-hosts npm "Exit handler never
+# called" intermittent failure that leaves devDeps partially installed.
 WORKDIR /app
 
-# Network-resilient npm config: retry transient DNS / socket failures
-# several times before giving up so builds don't fail on flaky networks.
-RUN npm config set fetch-retries 8 \
- && npm config set fetch-retry-factor 2 \
- && npm config set fetch-retry-mintimeout 10000 \
- && npm config set fetch-retry-maxtimeout 180000
-
 COPY package*.json ./
-RUN npm install
+# Retry npm install a few times and verify a known binary is present — npm
+# sometimes exits 0 despite partially installing devDependencies on flaky
+# networks, so we check explicitly.
+RUN set -eu; \
+    npm config set fetch-retries 5; \
+    npm config set fetch-retry-mintimeout 20000; \
+    npm config set fetch-retry-maxtimeout 120000; \
+    for i in 1 2 3; do \
+      rm -rf node_modules; \
+      npm install --no-audit --no-fund --loglevel=error || true; \
+      if [ -x node_modules/.bin/tsc ] && [ -x node_modules/.bin/ts-node ]; then \
+        echo "npm install succeeded (tsc+ts-node present on attempt $i)"; break; \
+      fi; \
+      echo "attempt $i did not install devDependencies; retrying"; \
+      sleep 5; \
+    done; \
+    test -x node_modules/.bin/tsc; \
+    test -x node_modules/.bin/ts-node
 
 COPY . .
 RUN npm run build

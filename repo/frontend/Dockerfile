@@ -1,19 +1,23 @@
-FROM node:20-alpine AS build
-
-# Force IPv4-first DNS so npm install doesn't stall on IPv6 blackholes.
-ENV NODE_OPTIONS="--dns-result-order=ipv4first"
-
+FROM node:20-bookworm-slim AS build
+# Debian-slim: avoids flaky Alpine/musl npm issues.
 WORKDIR /app
 
-# Network-resilient npm config: retry transient DNS / socket failures
-# several times before giving up.
-RUN npm config set fetch-retries 8 \
- && npm config set fetch-retry-factor 2 \
- && npm config set fetch-retry-mintimeout 10000 \
- && npm config set fetch-retry-maxtimeout 180000
-
 COPY package*.json ./
-RUN npm install --legacy-peer-deps
+RUN set -eu; \
+    npm config set fetch-retries 5; \
+    npm config set fetch-retry-mintimeout 20000; \
+    npm config set fetch-retry-maxtimeout 120000; \
+    for i in 1 2 3; do \
+      rm -rf node_modules; \
+      npm install --legacy-peer-deps --no-audit --no-fund --loglevel=error || true; \
+      if [ -x node_modules/.bin/vite ] && [ -x node_modules/.bin/vue-tsc ]; then \
+        echo "npm install succeeded (vite+vue-tsc present on attempt $i)"; break; \
+      fi; \
+      echo "attempt $i did not install devDependencies; retrying"; \
+      sleep 5; \
+    done; \
+    test -x node_modules/.bin/vite; \
+    test -x node_modules/.bin/vue-tsc
 
 COPY . .
 ARG VITE_API_BASE_URL=http://localhost:4000
