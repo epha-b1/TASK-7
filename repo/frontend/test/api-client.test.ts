@@ -73,7 +73,33 @@ describe("apiRequest", () => {
     );
   });
 
-  it("calls the auth failure handler for 401 responses outside login", async () => {
+  it("calls the auth failure handler for 401 responses outside login and /auth/me", async () => {
+    const onAuthFailure = vi.fn();
+    registerApiAuthFailureHandler(onAuthFailure);
+
+    mockFetch.mockResolvedValueOnce(
+      mockJsonResponse(
+        {
+          success: false,
+          error: { code: "NOT_AUTHENTICATED", message: "Not authenticated." },
+        },
+        401,
+      ),
+    );
+
+    await expect(apiRequest("/orders")).rejects.toThrow(ApiError);
+    expect(onAuthFailure).toHaveBeenCalledWith({
+      status: 401,
+      path: "/orders",
+      code: "NOT_AUTHENTICATED",
+      payload: {
+        success: false,
+        error: { code: "NOT_AUTHENTICATED", message: "Not authenticated." },
+      },
+    });
+  });
+
+  it("does not call the auth failure handler for initial /auth/me 401", async () => {
     const onAuthFailure = vi.fn();
     registerApiAuthFailureHandler(onAuthFailure);
 
@@ -88,15 +114,7 @@ describe("apiRequest", () => {
     );
 
     await expect(apiRequest("/auth/me")).rejects.toThrow(ApiError);
-    expect(onAuthFailure).toHaveBeenCalledWith({
-      status: 401,
-      path: "/auth/me",
-      code: "NOT_AUTHENTICATED",
-      payload: {
-        success: false,
-        error: { code: "NOT_AUTHENTICATED", message: "Not authenticated." },
-      },
-    });
+    expect(onAuthFailure).not.toHaveBeenCalled();
   });
 
   it("does not call the auth failure handler for invalid login attempts", async () => {
