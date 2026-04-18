@@ -173,7 +173,7 @@ const shouldHandleAuthFailure = (context: ApiAuthFailureContext): boolean => {
   }
 
   if (context.status === 401) {
-    return context.path !== "/auth/login";
+    return context.path !== "/auth/login" && context.path !== "/auth/me";
   }
 
   if (context.status !== 403) {
