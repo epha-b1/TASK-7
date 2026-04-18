@@ -1,6 +1,15 @@
 FROM node:20-alpine
 
+# Force IPv4-first DNS so npm install doesn't stall on IPv6 blackholes.
+ENV NODE_OPTIONS="--dns-result-order=ipv4first"
+
 WORKDIR /workspace
+
+# Network-resilient npm config: retry transient DNS / socket failures.
+RUN npm config set fetch-retries 8 \
+ && npm config set fetch-retry-factor 2 \
+ && npm config set fetch-retry-mintimeout 10000 \
+ && npm config set fetch-retry-maxtimeout 180000
 
 COPY repo/backend/package*.json ./backend/
 COPY repo/frontend/package*.json ./frontend/
