@@ -9,6 +9,7 @@ import {
 import { computeRemainingCapacityToday, computeWindowRemaining } from './capacityService';
 import type { FavoriteType, ListQuery, PickupPointDetail } from '../types';
 import { recordServerBehaviorEvent } from "../../behavior/services/behaviorService";
+import { parseDbJson } from "../../../utils/parseDbJson";
 
 export const listActiveBuyingCycles = async (params: {
   page: number;
@@ -50,13 +51,9 @@ export const getPickupPointDetail = async (params: {
       stateRegion: point.state_region,
       postalCode: point.postal_code
     },
-    // MySQL JSON columns already hand us a parsed object via mysql2, but
-    // some driver versions / connection options surface the raw string.
-    // Accept both shapes.
-    businessHours:
-      typeof point.business_hours_json === "string"
-        ? JSON.parse(point.business_hours_json)
-        : point.business_hours_json,
+    // MySQL JSON columns can arrive as either a parsed object or raw JSON
+    // text depending on the driver version. parseDbJson normalises both.
+    businessHours: parseDbJson<Record<string, string[]>>(point.business_hours_json) ?? {},
     dailyCapacity: Number(point.daily_capacity),
     remainingCapacityToday,
     windows,

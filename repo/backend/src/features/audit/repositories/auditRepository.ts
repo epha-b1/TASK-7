@@ -1,4 +1,5 @@
 import { dbPool } from '../../../db/pool';
+import { parseDbJson } from '../../../utils/parseDbJson';
 import type { AuditAction, AuditLogRecord, AuditSearchParams } from '../types';
 
 const toIso = (value: Date | string): string => new Date(value).toISOString();
@@ -20,7 +21,7 @@ const mapRow = (row: {
   action: row.action,
   resourceType: row.resource_type,
   resourceId: row.resource_id,
-  metadata: row.metadata_json ? (JSON.parse(row.metadata_json) as Record<string, unknown>) : null,
+  metadata: parseDbJson<Record<string, unknown>>(row.metadata_json),
   hashBasis: row.hash_basis,
   previousHash: row.previous_hash,
   currentHash: row.current_hash,

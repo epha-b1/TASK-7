@@ -1,4 +1,5 @@
 import { dbPool } from '../../../db/pool';
+import { parseDbJson } from '../../../utils/parseDbJson';
 import type {
   LedgerRow,
   ListingPriceRecord,
@@ -66,7 +67,7 @@ export const getActivePricingRuleVersions = async (): Promise<PricingRuleVersion
     code: row.code,
     name: row.name,
     ruleType: row.rule_type,
-    config: JSON.parse(row.config_json)
+    config: parseDbJson<Record<string, unknown>>(row.config_json) ?? {}
   }));
 };
 
@@ -517,7 +518,7 @@ export const getOrderDetailById = async (params: {
       tax: Number(order.tax_amount),
       total: Number(order.total_amount)
     },
-    pricingTrace: JSON.parse(order.pricing_trace_json),
+    pricingTrace: parseDbJson<Record<string, unknown>>(order.pricing_trace_json) ?? {},
     items: itemRows.map((item) => ({
       listingId: item.listing_id,
       quantity: Number(item.quantity),
@@ -527,7 +528,7 @@ export const getOrderDetailById = async (params: {
       lineSubsidy: Number(item.line_subsidy),
       lineTax: Number(item.line_tax),
       lineTotal: Number(item.line_total),
-      pricingBreakdown: JSON.parse(item.pricing_breakdown_json)
+      pricingBreakdown: parseDbJson<Record<string, unknown>>(item.pricing_breakdown_json) ?? {}
     }))
   };
 };
