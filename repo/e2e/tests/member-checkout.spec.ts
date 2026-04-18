@@ -45,7 +45,7 @@ test("member can quote and checkout an order against the real backend", async ()
   expect(pickupResponse.status()).toBe(200);
   const pickup = await pickupResponse.json();
   const windowWithSpace = (
-    pickup.data.windows as Array<{ id: number; remainingCapacity: number }>
+    pickup.data.windows as Array<{ windowId: number; remainingCapacity: number }>
   ).find((w) => w.remainingCapacity > 0);
   expect(windowWithSpace).toBeDefined();
 
@@ -54,7 +54,7 @@ test("member can quote and checkout an order against the real backend", async ()
     data: {
       cycleId: activeCycle.id,
       pickupPointId: listing.pickupPointId,
-      pickupWindowId: windowWithSpace!.id,
+      pickupWindowId: windowWithSpace!.windowId,
       taxJurisdictionCode: "US-IL-SPRINGFIELD",
       items: [{ listingId: listing.id, quantity: 2 }],
     },
@@ -69,7 +69,7 @@ test("member can quote and checkout an order against the real backend", async ()
     data: {
       cycleId: activeCycle.id,
       pickupPointId: listing.pickupPointId,
-      pickupWindowId: windowWithSpace!.id,
+      pickupWindowId: windowWithSpace!.windowId,
       taxJurisdictionCode: "US-IL-SPRINGFIELD",
       items: [{ listingId: listing.id, quantity: 1 }],
     },
@@ -110,7 +110,7 @@ test("full pickup window returns CAPACITY_EXCEEDED with alternatives", async () 
     await api.get(`${apiBase}/pickup-points/${listing.pickupPointId}`)
   ).json();
   const fullWindow = (
-    pickup.data.windows as Array<{ id: number; remainingCapacity: number }>
+    pickup.data.windows as Array<{ windowId: number; remainingCapacity: number }>
   ).find((w) => w.remainingCapacity === 0);
   expect(fullWindow).toBeDefined();
 
@@ -118,7 +118,7 @@ test("full pickup window returns CAPACITY_EXCEEDED with alternatives", async () 
     data: {
       cycleId: activeCycle.id,
       pickupPointId: listing.pickupPointId,
-      pickupWindowId: fullWindow!.id,
+      pickupWindowId: fullWindow!.windowId,
       taxJurisdictionCode: "US-IL-SPRINGFIELD",
       items: [{ listingId: listing.id, quantity: 1 }],
     },

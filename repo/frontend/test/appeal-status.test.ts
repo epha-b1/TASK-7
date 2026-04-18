@@ -91,7 +91,7 @@ describe("AppealStatusPage", () => {
 
   it("renders appeal detail with files and timeline", async () => {
     getAppealMock.mockResolvedValue(baseAppeal);
-    getTimelineMock.mockResolvedValue({ appealId: 7, status: "INTAKE", data: baseTimeline });
+    getTimelineMock.mockResolvedValue({ appealId: 7, status: "INTAKE", events: baseTimeline });
 
     const wrapper = mount(AppealStatusPage, {
       global: { stubs: { RouterLink: true } },
@@ -109,7 +109,7 @@ describe("AppealStatusPage", () => {
 
   it("shows transition button for reviewer on INTAKE status", async () => {
     getAppealMock.mockResolvedValue(baseAppeal);
-    getTimelineMock.mockResolvedValue({ appealId: 7, status: "INTAKE", data: baseTimeline });
+    getTimelineMock.mockResolvedValue({ appealId: 7, status: "INTAKE", events: baseTimeline });
 
     const wrapper = mount(AppealStatusPage, {
       global: { stubs: { RouterLink: true } },
@@ -125,7 +125,7 @@ describe("AppealStatusPage", () => {
 
   it("validates transition note is required", async () => {
     getAppealMock.mockResolvedValue(baseAppeal);
-    getTimelineMock.mockResolvedValue({ appealId: 7, status: "INTAKE", data: baseTimeline });
+    getTimelineMock.mockResolvedValue({ appealId: 7, status: "INTAKE", events: baseTimeline });
 
     const wrapper = mount(AppealStatusPage, {
       global: { stubs: { RouterLink: true } },
@@ -161,7 +161,7 @@ describe("AppealStatusPage", () => {
       },
     ];
     getTimelineMock
-      .mockResolvedValueOnce({ appealId: 7, status: "INTAKE", data: baseTimeline })
+      .mockResolvedValueOnce({ appealId: 7, status: "INTAKE", events: baseTimeline })
       .mockResolvedValueOnce({ appealId: 7, status: "INVESTIGATION", data: updatedTimeline });
 
     transitionStatusMock.mockResolvedValue({
@@ -278,7 +278,7 @@ describe("AppealStatusPage", () => {
       ],
     };
     getAppealMock.mockResolvedValue(appealWithTamperedFile);
-    getTimelineMock.mockResolvedValue({ appealId: 7, status: "INTAKE", data: baseTimeline });
+    getTimelineMock.mockResolvedValue({ appealId: 7, status: "INTAKE", events: baseTimeline });
 
     const wrapper = mount(AppealStatusPage, {
       global: { stubs: { RouterLink: true } },

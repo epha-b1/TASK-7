@@ -308,7 +308,7 @@ describe("appeal service", () => {
     ).rejects.toThrow("INVALID_STATUS_TRANSITION");
   });
 
-  it("does not allow finance clerk to access another user's appeal detail", async () => {
+  it("allows finance clerk elevated access to another user's appeal detail", async () => {
     mockedRepo.findAppealById.mockResolvedValue({
       id: 29,
       submittedByUserId: 100,
@@ -323,13 +323,15 @@ describe("appeal service", () => {
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     });
+    mockedRepo.listAppealFiles.mockResolvedValue([]);
 
-    await expect(
-      getAppealDetail({
-        appealId: 29,
-        requesterUserId: 22,
-        requesterRoles: ["FINANCE_CLERK"],
-      }),
-    ).rejects.toThrow("APPEAL_FORBIDDEN");
+    const result = await getAppealDetail({
+      appealId: 29,
+      requesterUserId: 22,
+      requesterRoles: ["FINANCE_CLERK"],
+    });
+
+    expect(result).not.toBeNull();
+    expect(result!.id).toBe(29);
   });
 });

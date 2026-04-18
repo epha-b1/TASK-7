@@ -49,7 +49,7 @@ test("appeal lifecycle: member creates + uploads, reviewer advances to RULING", 
       data: {
         cycleId: cycle.id,
         pickupPointId: listing.pickupPointId,
-        pickupWindowId: spaceful.id,
+        pickupWindowId: spaceful.windowId,
         taxJurisdictionCode: "US-IL-SPRINGFIELD",
         items: [{ listingId: listing.id, quantity: 1 }],
       },

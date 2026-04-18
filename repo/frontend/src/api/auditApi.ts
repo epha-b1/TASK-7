@@ -67,7 +67,7 @@ export const auditApi = {
     to?: string;
   }) => {
     const baseUrl =
-      (import.meta as any).env?.VITE_API_BASE_URL ?? "http://localhost:4000";
+      (import.meta as any).env?.VITE_API_BASE_URL ?? "/api";
     const query = buildQuery({ ...params, pageSize: 10000 });
     const response = await fetch(`${baseUrl}/audit/logs/export?${query}`, {
       credentials: "include",

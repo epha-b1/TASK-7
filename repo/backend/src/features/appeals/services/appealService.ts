@@ -119,7 +119,9 @@ const assertFileSignatureMatchesMimeType = (params: {
 };
 
 const hasElevatedAppealAccess = (roles: string[]): boolean =>
-  roles.some((role) => ["REVIEWER", "ADMINISTRATOR"].includes(role));
+  roles.some((role) =>
+    ["REVIEWER", "ADMINISTRATOR", "FINANCE_CLERK"].includes(role),
+  );
 
 const assertAppealAccess = (
   appeal: AppealRecord,
@@ -350,7 +352,7 @@ export const uploadAppealFiles = async (params: {
 
   return {
     appealId: appeal.id,
-    uploaded: inserted.map((file) => ({
+    files: inserted.map((file) => ({
       id: file.id,
       appealId: file.appealId,
       originalFileName: file.originalFileName,
@@ -426,7 +428,7 @@ export const getAppealTimeline = async (params: {
   return {
     appealId: appeal.id,
     status: appeal.status,
-    data: timeline,
+    events: timeline,
   };
 };
 

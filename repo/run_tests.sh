@@ -6,11 +6,14 @@ cd "$SCRIPT_DIR"
 
 PROJECT="neighborhoodpickup"
 COMPOSE=(docker compose -f docker-compose.yml -p "$PROJECT")
+COMPOSE_ALL=(docker compose -f docker-compose.yml -p "$PROJECT" --profile test --profile integration --profile e2e)
 
 cleanup() {
-  "${COMPOSE[@]}" down --volumes --remove-orphans || true
+  "${COMPOSE_ALL[@]}" down --volumes --remove-orphans || true
 }
 trap cleanup EXIT
+
+"${COMPOSE_ALL[@]}" down --volumes --remove-orphans >/dev/null 2>&1 || true
 
 echo "==> [1/3] Backend + frontend unit / component tests with coverage (Docker)..."
 "${COMPOSE[@]}" --profile test up \

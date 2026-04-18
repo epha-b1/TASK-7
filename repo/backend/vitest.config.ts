@@ -9,6 +9,8 @@ export default defineConfig({
     setupFiles: ["test/setup-env.ts"],
     clearMocks: true,
     restoreMocks: true,
+    pool: "forks",
+    poolOptions: { forks: { maxForks: 2, minForks: 1 } },
     exclude: [
       "dist/**",
       "node_modules/**",

@@ -50,7 +50,7 @@ export type AppealTimelineEvent = {
 export type AppealTimelineResponse = {
   appealId: number;
   status: AppealStatus;
-  data: AppealTimelineEvent[];
+  events: AppealTimelineEvent[];
 };
 
 export type AppealListItem = {

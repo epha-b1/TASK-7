@@ -144,7 +144,7 @@ const backPath = computed(() =>
     : "/notifications",
 );
 
-const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:4000";
+const apiBaseUrl = import.meta.env.VITE_API_BASE_URL ?? "/api";
 const formatDate = (value: string) => new Date(value).toLocaleString();
 const formatBytes = (size: number) => `${(size / 1024 / 1024).toFixed(2)} MB`;
 const downloadUrl = (fileId: number) =>
@@ -159,7 +159,7 @@ const load = async () => {
       appealApi.getTimeline(appealId.value),
     ]);
     appeal.value = detail;
-    timeline.value = history.data;
+    timeline.value = history.events;
   } catch (err) {
     appeal.value = null;
     timeline.value = [];

@@ -76,7 +76,7 @@ export const findPickupPointById = async (id: number): Promise<PickupPointRow | 
 
 export const listPickupWindowsByPoint = async (
   pickupPointId: number,
-  daysAhead = 7
+  daysAhead = 30
 ): Promise<PickupWindowRow[]> => {
   const [rows] = await dbPool.query<PickupWindowRow[]>(
     `SELECT id,

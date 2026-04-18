@@ -13,6 +13,8 @@ export default defineConfig({
     globals: true,
     clearMocks: true,
     restoreMocks: true,
+    pool: "forks",
+    poolOptions: { forks: { maxForks: 2, minForks: 1 } },
     coverage: {
       provider: "v8",
       reporter: ["text", "lcov", "html", "json-summary"],
