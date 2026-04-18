@@ -180,11 +180,14 @@ describe("discussions (no-mock, real MySQL)", () => {
         .send({ reason: "Not appropriate for this thread." });
 
       expect(response.status).toBe(200);
+      // Real flagComment returns {commentId, hidden}. `hidden` is true only
+      // once the 3-flag auto-hide threshold is reached; with one flag it's
+      // still false, and that's the contract we assert.
       expect(response.body.data).toMatchObject({
         commentId: rootCommentId,
-        totalFlags: expect.any(Number),
+        hidden: expect.any(Boolean),
       });
-      expect(response.body.data.totalFlags).toBeGreaterThanOrEqual(1);
+      expect(response.body.data.hidden).toBe(false);
     });
 
     it("returns 404 for a non-existent comment id", async () => {

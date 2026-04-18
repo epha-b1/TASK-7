@@ -64,7 +64,7 @@ describe("appeals lifecycle (no-mock, real MySQL + filesystem)", () => {
     const checkout = await memberAgent.post("/orders/checkout").send({
       cycleId,
       pickupPointId,
-      pickupWindowId: windowWithSpace.id,
+      pickupWindowId: windowWithSpace.windowId,
       taxJurisdictionCode: "US-IL-SPRINGFIELD",
       items: [{ listingId: listing.id, quantity: 1 }],
     });

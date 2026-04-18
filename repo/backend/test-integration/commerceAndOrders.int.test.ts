@@ -52,14 +52,15 @@ describe("commerce + orders (no-mock, real MySQL)", () => {
     );
     expect(pickupDetail.status).toBe(200);
     // Pick the first window that still has remaining capacity > 0.
+    // PickupWindowCapacity uses `windowId`, not `id`.
     const windowWithSpace = (
       pickupDetail.body.data.windows as Array<{
-        id: number;
+        windowId: number;
         remainingCapacity: number;
       }>
     ).find((w) => w.remainingCapacity > 0);
     expect(windowWithSpace).toBeDefined();
-    pickupWindowId = windowWithSpace!.id;
+    pickupWindowId = windowWithSpace!.windowId;
   });
 
   afterAll(async () => {
@@ -85,7 +86,7 @@ describe("commerce + orders (no-mock, real MySQL)", () => {
     expect(Array.isArray(response.body.data.windows)).toBe(true);
     expect(response.body.data.windows.length).toBeGreaterThan(0);
     for (const window of response.body.data.windows) {
-      expect(typeof window.id).toBe("number");
+      expect(typeof window.windowId).toBe("number");
       expect(typeof window.remainingCapacity).toBe("number");
     }
   });
@@ -178,7 +179,7 @@ describe("commerce + orders (no-mock, real MySQL)", () => {
     );
     const fullWindow = (
       pickupDetail.body.data.windows as Array<{
-        id: number;
+        windowId: number;
         remainingCapacity: number;
       }>
     ).find((w) => w.remainingCapacity === 0);
@@ -187,7 +188,7 @@ describe("commerce + orders (no-mock, real MySQL)", () => {
     const response = await memberAgent.post("/orders/checkout").send({
       cycleId: activeCycleId,
       pickupPointId,
-      pickupWindowId: fullWindow!.id,
+      pickupWindowId: fullWindow!.windowId,
       taxJurisdictionCode: "US-IL-SPRINGFIELD",
       items: [{ listingId, quantity: 1 }],
     });
@@ -229,10 +230,10 @@ describe("commerce + orders (no-mock, real MySQL)", () => {
       const detail = await memberAgent.get(`/pickup-points/${pickupPointId}`);
       const newWindow = (
         detail.body.data.windows as Array<{
-          id: number;
+          windowId: number;
           remainingCapacity: number;
         }>
-      ).find((w) => w.id === response.body.data.id);
+      ).find((w) => w.windowId === response.body.data.id);
       expect(newWindow).toBeDefined();
       expect(newWindow!.remainingCapacity).toBe(40);
     });
